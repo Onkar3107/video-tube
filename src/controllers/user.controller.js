@@ -4,7 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken";
-import { mongo } from "mongoose";
+import mongoose from "mongoose";
 
 const generateTokens = async (userID) => {
   try {
@@ -148,7 +148,7 @@ export const loginUser = AsyncHandler(async (req, res) => {
 export const logoutUser = AsyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
-    { $unset: { refreshToken: "" } },
+    { $unset: { refreshToken: 1 } },
     { new: true }
   );
 
@@ -175,7 +175,7 @@ export const refreshAccessToken = AsyncHandler(async (req, res) => {
   try {
     const decodedToken = jwt.verify(
       incomingRefreshToken,
-      process.env.JWT_REFRESH_SECRET
+      process.env.REFRESH_TOKEN_SECRET
     );
 
     const user = await User.findById(decodedToken?._id);
@@ -217,6 +217,7 @@ export const refreshAccessToken = AsyncHandler(async (req, res) => {
 
 export const changeCurrentPassword = AsyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
+  // console.log(currentPassword, newPassword);
 
   if (!currentPassword || !newPassword) {
     throw new ApiError(400, "Current and new password are required");
@@ -337,7 +338,7 @@ export const getUserChannelProfile = AsyncHandler(async (req, res) => {
     throw new ApiError(400, "Username is missing");
   }
 
-  const channel = User.aggregate([
+  const channel = await User.aggregate([
     {
       $match: { username: username?.toLowerCase() },
     },
@@ -389,6 +390,7 @@ export const getUserChannelProfile = AsyncHandler(async (req, res) => {
       },
     },
   ]);
+  // console.log(channel);
 
   if (!channel?.length) {
     throw new ApiError(404, "Channel does not exists");
@@ -404,12 +406,12 @@ export const getUserChannelProfile = AsyncHandler(async (req, res) => {
 export const getWatchHistory = AsyncHandler(async (req, res) => {
   const user = await User.aggregate([
     {
-      $match : {
-        _id : new mongoose.Types.ObjectId(req.user?._id)
-      }
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user?._id),
+      },
     },
     {
-      $lookup : {
+      $lookup: {
         from: "videos",
         localField: "watchHistory",
         foreignField: "_id",
@@ -425,21 +427,21 @@ export const getWatchHistory = AsyncHandler(async (req, res) => {
                 {
                   $project: {
                     avatar: 1,
-                    username: 1
-                  }
-                }
-              ]
-            }
+                    username: 1,
+                  },
+                },
+              ],
+            },
           },
           {
             $addFields: {
               owner: {
-                $arrayElemAt: ["$owner", 0]
-              }
-            }
-          }
-        ]
-      }
+                $arrayElemAt: ["$owner", 0],
+              },
+            },
+          },
+        ],
+      },
     },
   ]);
 
@@ -451,5 +453,5 @@ export const getWatchHistory = AsyncHandler(async (req, res) => {
         user[0].watchHistory,
         "Watch history fetched successfully"
       )
-    )
+    );
 });
