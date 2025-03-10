@@ -26,3 +26,24 @@ export const uploadOnCloudinary = async (localFilePath) => {
     return null;
   }
 };
+
+export const deleteFromCloudinary = async (fileUrl) => {
+  try {
+    if (!fileUrl) {
+      return null;
+    }
+
+    // TODO: Fix this issue with the public_id extraction
+    const publicId = cloudinary.utils.extractPublicId(fileUrl);
+
+    // Delete file from cloudinary
+    const response = await cloudinary.uploader.destroy(publicId);
+
+    // console.log("File deleted successfully", response);
+
+    return response;
+  } catch (error) {
+    console.error("Cloudinary delete error: ",error);
+    return null;
+  }
+};
