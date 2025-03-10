@@ -12,6 +12,9 @@ import {
 const getAllVideos = AsyncHandler(async (req, res) => {
   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
   //TODO: get all videos based on query, sort, pagination
+
+  
+
 });
 
 const publishAVideo = AsyncHandler(async (req, res) => {
@@ -189,15 +192,17 @@ const togglePublishStatus = AsyncHandler(async (req, res) => {
   }
 
   const newStatus = !video.isPublished;
-  
+
   if (video.isPublished === newStatus) {
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        video,
-        `Video is already ${newStatus ? "Published" : "Unpublished"}.`
-      )
-    );
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          video,
+          `Video is already ${newStatus ? "Published" : "Unpublished"}.`
+        )
+      );
   }
 
   video.isPublished = newStatus;
@@ -213,7 +218,6 @@ const togglePublishStatus = AsyncHandler(async (req, res) => {
       )
     );
 });
-
 
 export {
   getAllVideos,
