@@ -6,7 +6,6 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { AsyncHandler } from "../utils/wrapAsync.js";
 
 const createTweet = AsyncHandler(async (req, res) => {
-  //TODO: create tweet
 
   // Algo:-
   // 1. Extract tweet from req.body
@@ -42,7 +41,6 @@ const createTweet = AsyncHandler(async (req, res) => {
 });
 
 const getUserTweets = AsyncHandler(async (req, res) => {
-  // TODO: get user tweets
 
   const { userId } = req.params;
 
@@ -76,7 +74,6 @@ const getUserTweets = AsyncHandler(async (req, res) => {
 });
 
 const updateTweet = AsyncHandler(async (req, res) => {
-  //TODO: update tweet
 
   const { tweetId } = req.params;
   const tweet = req.body.tweet?.trim();
@@ -110,7 +107,6 @@ const updateTweet = AsyncHandler(async (req, res) => {
 });
 
 const deleteTweet = AsyncHandler(async (req, res) => {
-  //TODO: delete tweet
 
   const { tweetId } = req.params;
 

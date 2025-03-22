@@ -11,7 +11,6 @@ const getVideoComments = AsyncHandler(async (req, res) => {
 });
 
 const addComment = AsyncHandler(async (req, res) => {
-  // TODO: add a comment to a video
 
   const { videoId } = req.params;
   const comment = req.body.comment?.trim();
@@ -46,7 +45,6 @@ const addComment = AsyncHandler(async (req, res) => {
 });
 
 const updateComment = AsyncHandler(async (req, res) => {
-  // TODO: update a comment
 
   const { commentId } = req.params;
   const comment = req.body.comment?.trim();
@@ -85,7 +83,6 @@ const updateComment = AsyncHandler(async (req, res) => {
 });
 
 const deleteComment = AsyncHandler(async (req, res) => {
-  // TODO: delete a comment
 
   const { commentId } = req.params;
 

@@ -7,7 +7,6 @@ import { AsyncHandler } from "../utils/wrapAsync.js";
 const createPlaylist = AsyncHandler(async (req, res) => {
   const { name, description } = req.body;
 
-  //TODO: create playlist
 
   if (!name.trim() || !description.trim()) {
     throw new ApiError(400, "Name and Description are required fields.");
@@ -32,7 +31,6 @@ const createPlaylist = AsyncHandler(async (req, res) => {
 
 const getUserPlaylists = AsyncHandler(async (req, res) => {
   const { userId } = req.params;
-  //TODO: get user playlists
 
   if (!isValidObjectId(userId)) {
     throw new ApiError(400, "Invalid User ID.");
@@ -55,7 +53,6 @@ const getUserPlaylists = AsyncHandler(async (req, res) => {
 
 const getPlaylistById = AsyncHandler(async (req, res) => {
   const { playlistId } = req.params;
-  //TODO: get playlist by id
 
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "Invalid playlist ID.");
@@ -120,7 +117,6 @@ const addVideoToPlaylist = AsyncHandler(async (req, res) => {
 
 const removeVideoFromPlaylist = AsyncHandler(async (req, res) => {
   const { playlistId, videoId } = req.params;
-  // TODO: remove video from playlist
 
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "Invalid playlist ID.");
@@ -163,7 +159,6 @@ const removeVideoFromPlaylist = AsyncHandler(async (req, res) => {
 
 const deletePlaylist = AsyncHandler(async (req, res) => {
   const { playlistId } = req.params;
-  // TODO: delete playlist
 
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "Invalid playlist ID");
@@ -191,7 +186,6 @@ const deletePlaylist = AsyncHandler(async (req, res) => {
 const updatePlaylist = AsyncHandler(async (req, res) => {
   const { playlistId } = req.params;
   const { name, description } = req.body;
-  //TODO: update playlist
 
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "Invalid playlist ID");
