@@ -9,7 +9,7 @@ const createPlaylist = AsyncHandler(async (req, res) => {
 
   //TODO: create playlist
 
-  if (!name || !description) {
+  if (!name.trim() || !description.trim()) {
     throw new ApiError(400, "Name and Description are required fields.");
   }
 
@@ -38,11 +38,7 @@ const getUserPlaylists = AsyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid User ID.");
   }
 
-  const playlists = await Playlist.find({ owner: req.user._id });
-
-  if (!playlists) {
-    throw new ApiError(400, "Playlist does not exists.");
-  }
+  const playlists = await Playlist.find({ owner: userId }).lean();
 
   return res
     .status(200)
@@ -51,7 +47,7 @@ const getUserPlaylists = AsyncHandler(async (req, res) => {
         200,
         playlists,
         playlists.length < 1
-          ? "This playlists does not contain any videos."
+          ? "User has no playlists."
           : "Playlist fetched successfully."
       )
     );
@@ -68,12 +64,20 @@ const getPlaylistById = AsyncHandler(async (req, res) => {
   const playlist = await Playlist.findById(playlistId).lean();
 
   if (!playlist) {
-    throw new ApiError(400, "This playlist does not exists.");
+    throw new ApiError(404, "Playlist not found.");
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, playlist, "Playlist fetched successfully."));
+    .json(
+      new ApiResponse(
+        200,
+        playlist,
+        playlist.videos.length === 0
+          ? "Playlist fetched successfully but contains no videos."
+          : "Playlist fetched successfully."
+      )
+    );
 });
 
 const addVideoToPlaylist = AsyncHandler(async (req, res) => {
@@ -101,7 +105,7 @@ const addVideoToPlaylist = AsyncHandler(async (req, res) => {
     if (playlistExists.owner.toString() !== req.user._id.toString()) {
       throw new ApiError(
         403,
-        "You do not have permission to modify this playlist."
+        "Unauthorized attempt to add video to playlist."
       );
     }
     throw new ApiError(400, "Video is already in the playlist.");
@@ -140,7 +144,7 @@ const removeVideoFromPlaylist = AsyncHandler(async (req, res) => {
     if (playlistExists.owner.toString() !== req.user._id.toString()) {
       throw new ApiError(
         403,
-        "You do not have permission to modify this playlist."
+        "Unauthorized attempt to remove video from playlist."
       );
     }
     throw new ApiError(404, "Video not found in the playlist.");
@@ -173,7 +177,7 @@ const deletePlaylist = AsyncHandler(async (req, res) => {
   if (!deletedPlaylist) {
     throw new ApiError(
       404,
-      "Playlist not found or you have not permission to delete it."
+      "Playlist not found or unauthorized attempt to delete."
     );
   }
 
@@ -193,20 +197,20 @@ const updatePlaylist = AsyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid playlist ID");
   }
 
-  if (!name || !description) {
+  if (!name.trim() || !description.trim()) {
     throw new ApiError(400, "Name and Description are required fields");
   }
 
   const updatedPlaylist = await Playlist.findOneAndUpdate(
     { _id: playlistId, owner: req.user._id },
-    { name: name, description: description },
+    { name: name.trim(), description: description.trim() },
     { new: true, runValidators: true }
   );
 
   if (!updatedPlaylist) {
     throw new ApiError(
       404,
-      "Playlist not found or you don't have permission to update it."
+      "Playlist not found or unauthorized attempt to update."
     );
   }
 
