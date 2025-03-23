@@ -42,7 +42,6 @@ const toggleVideoLike = AsyncHandler(async (req, res) => {
 const toggleCommentLike = AsyncHandler(async (req, res) => {
   const { commentId } = req.params;
   const userId = req.user._id?.toString();
-  //TODO: toggle like on comment
 
   if (!isValidObjectId(commentId)) {
     throw new ApiError(400, "Invalid comment ID.");
@@ -77,8 +76,6 @@ const toggleTweetLike = AsyncHandler(async (req, res) => {
   const { tweetId } = req.params;
   const userId = req.user._id?.toString();
 
-  //TODO: toggle like on tweet
-
   if (!isValidObjectId(tweetId)) {
     throw new ApiError(400, "Invalid tweet ID.");
   }
@@ -109,8 +106,6 @@ const toggleTweetLike = AsyncHandler(async (req, res) => {
 });
 
 const getLikedVideos = AsyncHandler(async (req, res) => {
-  //TODO: get all liked videos
-
   const likedVideos = await Like.aggregate([
     {
       $match: {
