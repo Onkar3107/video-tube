@@ -50,6 +50,8 @@ const getUserChannelSubscribers = AsyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid Channel ID.");
   }
 
+  // TODO : Fix the Aggregation pipeline.
+
   const subscribers = await Subscription.aggregate([
     {
       $match: {
@@ -100,9 +102,13 @@ const getUserChannelSubscribers = AsyncHandler(async (req, res) => {
 const getSubscribedChannels = AsyncHandler(async (req, res) => {
   const { subscriberId } = req.params;
 
+  console.log(subscriberId)
+
   if (!isValidObjectId(subscriberId)) {
     throw new ApiError(400, "Invalid subscriber ID.");
   }
+
+  // TODO: Fix the Aggregation pipeline.
 
   const channelList = await Subscription.aggregate([
     {
@@ -135,6 +141,8 @@ const getSubscribedChannels = AsyncHandler(async (req, res) => {
       },
     },
   ]);
+
+  console.log(channelList)
 
   return res
     .status(200)
