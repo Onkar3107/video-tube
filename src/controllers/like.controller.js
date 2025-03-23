@@ -110,6 +110,47 @@ const toggleTweetLike = AsyncHandler(async (req, res) => {
 
 const getLikedVideos = AsyncHandler(async (req, res) => {
   //TODO: get all liked videos
+
+  const likedVideos = await Like.aggregate([
+    {
+      $match: {
+        likedBy: req.user._id,
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "video",
+        foreignField: "_id",
+        as: "video",
+      },
+    },
+    {
+      $unwind: "$video",
+    },
+    {
+      $group: {
+        _id: "$likedBy",
+        video: {
+          $push: "$video",
+        },
+        count: { $sum: 1 },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        count: 1,
+        video: 1,
+      },
+    },
+  ]);
+
+  // console.log(likedVideos[0]);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, likedVideos[0], "Liked videos fetched."));
 });
 
 export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos };
