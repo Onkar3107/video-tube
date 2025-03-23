@@ -102,18 +102,17 @@ const getUserChannelSubscribers = AsyncHandler(async (req, res) => {
 const getSubscribedChannels = AsyncHandler(async (req, res) => {
   const { subscriberId } = req.params;
 
-  console.log(subscriberId)
+  // console.log(subscriberId);
 
   if (!isValidObjectId(subscriberId)) {
     throw new ApiError(400, "Invalid subscriber ID.");
   }
 
-  // TODO: Fix the Aggregation pipeline.
 
   const channelList = await Subscription.aggregate([
     {
       $match: {
-        subscriber: subscriberId,
+        subscriber: new mongoose.Types.ObjectId(subscriberId),
       },
     },
     {
@@ -135,14 +134,15 @@ const getSubscribedChannels = AsyncHandler(async (req, res) => {
     },
     {
       $project: {
-        _id: 0,
-        subscriber: "$_id",
-        channelInfo: 1,
+        "channelInfo.password": 0,
+        "channelInfo.email": 0,
+        "channelInfo.watcHHistory": 0,
+        "channelInfo.__v": 0,
       },
     },
   ]);
 
-  console.log(channelList)
+  // console.log(channelList)
 
   return res
     .status(200)
