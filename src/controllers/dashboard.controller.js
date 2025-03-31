@@ -8,6 +8,93 @@ import { AsyncHandler } from "../utils/wrapAsync.js";
 
 const getChannelStats = AsyncHandler(async (req, res) => {
   // TODO: Get the channel stats like total video views, total subscribers, total videos, total likes etc.
+
+  const channelId = req.user._id;
+
+  const stats = await Video.aggregate([
+    {
+      $match: {
+        owner: new mongoose.Types.ObjectId(channelId),
+      },
+    },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "result",
+      },
+    },
+    {
+      $addFields: {
+        likeCount: {
+          $size: { $ifNull: ["$result", []] },
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "ownerData",
+        pipeline: [
+          {
+            $lookup: {
+              from: "subscriptions",
+              localField: "_id",
+              foreignField: "channel",
+              as: "res",
+            },
+          },
+          {
+            $addFields: {
+              totalSubscribers: {
+                $size: { $ifNull: ["$res", []] },
+              },
+            },
+          },
+          {
+            $project: {
+              totalSubscribers: 1,
+              username: 1,
+              avatar: 1,
+              coverImage: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: "$ownerData",
+    },
+    {
+      $addFields: {
+        subscribersCount: "$ownerData.totalSubscribers",
+      },
+    },
+    {
+      $group: {
+        _id: "$owner",
+        totalLikes: { $sum: "$likeCount" },
+        totalViews: { $sum: "$views" },
+        totalVideos: { $sum: 1 },
+        totalSubscribers: { $first: "$subscribersCount" },
+        username: { $first: "$ownerData.username" },
+        avatar: { $first: "$ownerData.avatar" },
+        coverImage: { $first: "$ownerData.coverImage" },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+      },
+    },
+  ]);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, stats[0], "Channel stats fetched successfully."));
 });
 
 const getChannelVideos = AsyncHandler(async (req, res) => {
