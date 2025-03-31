@@ -7,8 +7,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { AsyncHandler } from "../utils/wrapAsync.js";
 
 const getChannelStats = AsyncHandler(async (req, res) => {
-  // TODO: Get the channel stats like total video views, total subscribers, total videos, total likes etc.
-
+  
   const channelId = req.user._id;
 
   const stats = await Video.aggregate([
@@ -94,7 +93,9 @@ const getChannelStats = AsyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, stats[0], "Channel stats fetched successfully."));
+    .json(
+      new ApiResponse(200, stats[0], "Channel stats fetched successfully.")
+    );
 });
 
 const getChannelVideos = AsyncHandler(async (req, res) => {
