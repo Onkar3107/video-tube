@@ -288,7 +288,6 @@ export const updateAvatar = AsyncHandler(async (req, res) => {
     throw new ApiError(500, "Error uploading avatar");
   }
 
-
   // TODO : delete previous avatar from cloudinary
 
   const user = await User.findByIdAndUpdate(

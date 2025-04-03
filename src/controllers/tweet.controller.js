@@ -6,7 +6,6 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { AsyncHandler } from "../utils/wrapAsync.js";
 
 const createTweet = AsyncHandler(async (req, res) => {
-
   // Algo:-
   // 1. Extract tweet from req.body
   // 2. Check for condition which will not give errors while DB write
@@ -41,7 +40,6 @@ const createTweet = AsyncHandler(async (req, res) => {
 });
 
 const getUserTweets = AsyncHandler(async (req, res) => {
-
   const { userId } = req.params;
 
   if (!isValidObjectId(userId)) {
@@ -74,7 +72,6 @@ const getUserTweets = AsyncHandler(async (req, res) => {
 });
 
 const updateTweet = AsyncHandler(async (req, res) => {
-
   const { tweetId } = req.params;
   const tweet = req.body.tweet?.trim();
 
@@ -107,7 +104,6 @@ const updateTweet = AsyncHandler(async (req, res) => {
 });
 
 const deleteTweet = AsyncHandler(async (req, res) => {
-
   const { tweetId } = req.params;
 
   if (!isValidObjectId(tweetId)) {

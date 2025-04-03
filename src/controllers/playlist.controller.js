@@ -7,7 +7,6 @@ import { AsyncHandler } from "../utils/wrapAsync.js";
 const createPlaylist = AsyncHandler(async (req, res) => {
   const { name, description } = req.body;
 
-
   if (!name.trim() || !description.trim()) {
     throw new ApiError(400, "Name and Description are required fields.");
   }
@@ -100,10 +99,7 @@ const addVideoToPlaylist = AsyncHandler(async (req, res) => {
       throw new ApiError(404, "Playlist not found.");
     }
     if (playlistExists.owner.toString() !== req.user._id.toString()) {
-      throw new ApiError(
-        403,
-        "Unauthorized attempt to add video to playlist."
-      );
+      throw new ApiError(403, "Unauthorized attempt to add video to playlist.");
     }
     throw new ApiError(400, "Video is already in the playlist.");
   }

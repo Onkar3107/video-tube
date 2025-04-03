@@ -7,7 +7,6 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { AsyncHandler } from "../utils/wrapAsync.js";
 
 const getChannelStats = AsyncHandler(async (req, res) => {
-  
   const channelId = req.user._id;
 
   const stats = await Video.aggregate([

@@ -12,9 +12,6 @@ import {
 const getAllVideos = AsyncHandler(async (req, res) => {
   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
   //TODO: get all videos based on query, sort, pagination
-
-  
-
 });
 
 const publishAVideo = AsyncHandler(async (req, res) => {
@@ -93,7 +90,7 @@ const getVideoById = AsyncHandler(async (req, res) => {
 
 const updateVideo = AsyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  
+
   const { title, description } = req.body;
 
   if (!title || !description) {
