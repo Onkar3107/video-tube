@@ -288,6 +288,9 @@ export const updateAvatar = AsyncHandler(async (req, res) => {
     throw new ApiError(500, "Error uploading avatar");
   }
 
+
+  // TODO : delete previous avatar from cloudinary
+
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
@@ -315,6 +318,8 @@ export const updateCoverImage = AsyncHandler(async (req, res) => {
   if (!coverImage.url) {
     throw new ApiError(500, "Error uploading cover image");
   }
+
+  // TODO : delete previous cover image from cloudinary
 
   const user = await User.findByIdAndUpdate(
     req.user?._id,

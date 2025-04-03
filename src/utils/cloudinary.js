@@ -33,8 +33,7 @@ export const deleteFromCloudinary = async (fileUrl) => {
       return null;
     }
 
-    // TODO: Fix this issue with the public_id extraction
-    const publicId = cloudinary.utils.extractPublicId(fileUrl);
+    const publicId = fileUrl.split("/").slice(-1)[0].split(".")[0];
 
     // Delete file from cloudinary
     const response = await cloudinary.uploader.destroy(publicId);
@@ -43,7 +42,7 @@ export const deleteFromCloudinary = async (fileUrl) => {
 
     return response;
   } catch (error) {
-    console.error("Cloudinary delete error: ",error);
+    console.error("Cloudinary delete error: ", error);
     return null;
   }
 };

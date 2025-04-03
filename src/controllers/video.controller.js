@@ -138,7 +138,6 @@ const updateVideo = AsyncHandler(async (req, res) => {
 
   await video.save();
 
-  // TODO: delete old thumbnail from cloudinary
   await deleteFromCloudinary(thumbnailToBeDeleted);
 
   // console.log(video);
