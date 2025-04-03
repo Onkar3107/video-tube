@@ -6,10 +6,17 @@ import { AsyncHandler } from "../utils/wrapAsync.js";
 
 const getVideoComments = AsyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  const { page = 1, limit = 10 } = req.query;
+  let { page = 1, limit = 10 } = req.query;
+
+  page = parseInt(page, 10);
+  limit = parseInt(limit, 10);
 
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video ID.");
+  }
+
+  if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
+    throw new ApiError(400, "Page and limit must be positive numbers.");
   }
 
   const comments = await Comment.aggregate([
@@ -26,9 +33,7 @@ const getVideoComments = AsyncHandler(async (req, res) => {
         as: "owner",
       },
     },
-    {
-      $unwind: "$owner",
-    },
+    { $unwind: "$owner" },
     {
       $project: {
         content: 1,
@@ -41,39 +46,38 @@ const getVideoComments = AsyncHandler(async (req, res) => {
         },
       },
     },
-  ])
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .sort({ createdAt: -1 });
+    { $sort: { createdAt: -1 } },
+    { $skip: (page - 1) * limit },
+    { $limit: limit },
+  ]);
 
+  // Get total comments count
   const totalComments = await Comment.countDocuments({
     video: new mongoose.Types.ObjectId(videoId),
   });
 
+  // Pagination metadata
   const totalPages = Math.ceil(totalComments / limit);
   const hasNextPage = page < totalPages;
   const hasPrevPage = page > 1;
-  const nextPage = hasNextPage ? parseInt(page) + 1 : null;
-  const prevPage = hasPrevPage ? parseInt(page) - 1 : null;
 
-  const pagination = {
-    totalComments,
-    totalPages,
-    hasNextPage,
-    hasPrevPage,
-    nextPage,
-    prevPage,
-  };
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { comments, pagination },
-        "Comments retrieved successfully."
-      )
-    );
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        comments,
+        pagination: {
+          totalComments,
+          totalPages,
+          hasNextPage,
+          hasPrevPage,
+          nextPage: hasNextPage ? page + 1 : null,
+          prevPage: hasPrevPage ? page - 1 : null,
+        },
+      },
+      "Comments retrieved successfully."
+    )
+  );
 });
 
 const addComment = AsyncHandler(async (req, res) => {
