@@ -291,8 +291,6 @@ export const updateAvatar = AsyncHandler(async (req, res) => {
     throw new ApiError(500, "Error uploading avatar");
   }
 
-  // TODO : delete previous avatar from cloudinary
-
   const user = await User.findById(req.user?._id).select("avatar");
 
   if (!user) {
@@ -335,17 +333,40 @@ export const updateCoverImage = AsyncHandler(async (req, res) => {
     throw new ApiError(500, "Error uploading cover image");
   }
 
-  // TODO : delete previous cover image from cloudinary
+  const user = await User.findById(req.user?._id).select("coverImage");
 
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $set: {
-        coverImage: coverImage.url,
-      },
-    },
-    { new: true }
-  ).select("-password -refreshToken");
+  if (!user) {
+    throw new ApiError(400, "User not found.");
+  }
+
+  const oldCoverImageUrl = user.coverImage;
+
+  try {
+    user.coverImage = coverImage.url;
+    await user.save();
+
+    if (oldCoverImageUrl) {
+      await deleteFromCloudinary(oldCoverImageUrl);
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "Cover image updated successfully"));
+  } catch (err) {
+    console.error("Error uploading cover image:", err);
+
+    await deleteFromCloudinary(coverImage.url);
+
+    return res
+      .status(500)
+      .json(
+        new ApiResponse(
+          500,
+          {},
+          "Error uploading cover image. Try again later."
+        )
+      );
+  }
 
   return res
     .status(200)
