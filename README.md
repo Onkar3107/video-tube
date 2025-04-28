@@ -66,16 +66,16 @@ onkar3107-video-tube/
 
 ## Tech Stack
 
-| Category         | Technology              |
-|------------------|-------------------------|
-| **Backend**      | Node.js, Express.js     |
-| **Database**     | MongoDB with Mongoose ODM |
-| **Cloud Storage**| Cloudinary API          |
-| **Authentication** | JWT (JSON Web Tokens) |
-| **File Uploads** | Multer                  |
-| **Validation**   | Express-Validator       |
+| Category           | Technology                 |
+| ------------------ | -------------------------- |
+| **Backend**        | Node.js, Express.js        |
+| **Database**       | MongoDB with Mongoose ODM  |
+| **Cloud Storage**  | Cloudinary API             |
+| **Authentication** | JWT (JSON Web Tokens)      |
+| **File Uploads**   | Multer                     |
+| **Validation**     | Express-Validator          |
 | **Error Handling** | Custom Error Handler Utils |
-| **Formatting**   | Prettier                |
+| **Formatting**     | Prettier                   |
 
 ## Setup Instructions
 
@@ -124,17 +124,17 @@ Server will be accessible on:
 
 ## API Documentation Overview
 
-| API Module      | Endpoint Base         | Purpose                              |
-|------------------|-----------------------|--------------------------------------|
-| **Users**        | `/api/v1/users`       | User registration, login, profile update |
-| **Videos**       | `/api/v1/videos`      | Video uploading, viewing, updating, deleting |
-| **Comments**     | `/api/v1/comments`    | Adding comments, fetching, deleting |
-| **Likes**        | `/api/v1/likes`       | Like and unlike operations          |
-| **Playlists**    | `/api/v1/playlists`   | Create and manage playlists         |
-| **Subscriptions**| `/api/v1/subscriptions` | Subscribe/unsubscribe to other users |
-| **Tweets**       | `/api/v1/tweets`      | Create short tweet posts            |
-| **Dashboard**    | `/api/v1/dashboard`   | View basic stats                    |
-| **Healthcheck**  | `/api/v1/healthcheck` | Check server uptime/status          |
+| API Module        | Endpoint Base           | Purpose                                      |
+| ----------------- | ----------------------- | -------------------------------------------- |
+| **Users**         | `/api/v1/users`         | User registration, login, profile update     |
+| **Videos**        | `/api/v1/videos`        | Video uploading, viewing, updating, deleting |
+| **Comments**      | `/api/v1/comments`      | Adding comments, fetching, deleting          |
+| **Likes**         | `/api/v1/likes`         | Like and unlike operations                   |
+| **Playlists**     | `/api/v1/playlists`     | Create and manage playlists                  |
+| **Subscriptions** | `/api/v1/subscriptions` | Subscribe/unsubscribe to other users         |
+| **Tweets**        | `/api/v1/tweets`        | Create short tweet posts                     |
+| **Dashboard**     | `/api/v1/dashboard`     | View basic stats                             |
+| **Healthcheck**   | `/api/v1/healthcheck`   | Check server uptime/status                   |
 
 🔖 Full API documentation with request bodies, responses, and error examples will be available soon!
 
@@ -146,21 +146,21 @@ Here’s how:
 1. Fork the project.
 2. Create a new feature branch:
 
-    ```bash
-    git checkout -b feature/your-feature-name
-    ```
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
 
 3. Commit your changes:
 
-    ```bash
-    git commit -m 'Add new feature'
-    ```
+   ```bash
+   git commit -m 'Add new feature'
+   ```
 
 4. Push to your branch:
 
-    ```bash
-    git push origin feature/your-feature-name
-    ```
+   ```bash
+   git push origin feature/your-feature-name
+   ```
 
 5. Open a Pull Request and describe your changes.
 
@@ -172,4 +172,4 @@ Here’s how:
 
 ## License
 
-This project is licensed under the **MIT License** — you are free to use, share, and modify it for personal or commercial use.
+This project is licensed under the **MIT License** (see the [LICENSE](./LICENSE) file for details) — you are free to use, share, and modify it for personal or commercial use.
