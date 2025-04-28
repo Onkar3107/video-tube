@@ -4,11 +4,7 @@ A scalable, production-ready Video Sharing and Social Platform Backend inspired 
 
 ## 🎖️ Badges
 
-![Build](https://img.shields.io/badge/build-passing-brightgreen)  
-![License](https://img.shields.io/badge/license-MIT-blue.svg)  
-![Node.js](https://img.shields.io/badge/node.js-18.x-brightgreen)  
-![MongoDB](https://img.shields.io/badge/database-MongoDB-green)  
-![Made with Love](https://img.shields.io/badge/made%20with-%E2%9D%A4-red)
+![Build](https://img.shields.io/badge/build-passing-brightgreen) &nbsp; ![License](https://img.shields.io/badge/license-MIT-blue.svg) &nbsp; ![Node.js](https://img.shields.io/badge/node.js-18.x-brightgreen) &nbsp; ![MongoDB](https://img.shields.io/badge/database-MongoDB-green) &nbsp; ![Made with Love](https://img.shields.io/badge/made%20with-%E2%9D%A4-red)
 
 ## 📋 Table of Contents
 
