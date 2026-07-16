@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  # ─── Application Server ──────────────────────────────────────────────────────
+  app:
+    build: .
+    container_name: videotube_app
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./public:/app/public
+    restart: unless-stopped
+
+  # ─── BullMQ Worker Process ───────────────────────────────────────────────────
+  worker:
+    build: .
+    container_name: videotube_worker
+    command: node dist/workers/index.js
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── PostgreSQL ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: videotube_postgres
+    environment:
+      POSTGRES_USER: videotube
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: videotube
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U videotube"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: videotube_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

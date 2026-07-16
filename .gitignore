@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test coverage
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Prisma
+prisma/migrations/dev.db
+
+# Logs
+*.log
+logs/
+
+# Upload temp directory
+public/temp/*
+!public/temp/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Docker volumes
+postgres_data/
