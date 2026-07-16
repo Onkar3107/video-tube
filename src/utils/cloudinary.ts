@@ -28,15 +28,16 @@ export const uploadOnCloudinary = async (localFilePath: string | undefined) => {
 
 export const deleteFromCloudinary = async (fileUrl: string | undefined) => {
   try {
-    if (!fileUrl) {
-      return null;
-    }
-    const publicId = fileUrl.split('/').slice(-1)[0]?.split('.')[0];
-    if (!publicId) return null;
+    if (!fileUrl) return null;
+    const urlParts = fileUrl.split('/upload/');
+    if (urlParts.length < 2) return null;
+    const withVersion = urlParts[1]!;
+    const withoutVersion = withVersion.replace(/^v\d+\//, '');
+    const publicId = withoutVersion.replace(/\.[^.]+$/, '');
     const response = await cloudinary.uploader.destroy(publicId);
     return response;
   } catch (error) {
-    console.error('Cloudinary delete error: ', error);
+    console.error('Cloudinary delete error:', error);
     return null;
   }
 };
