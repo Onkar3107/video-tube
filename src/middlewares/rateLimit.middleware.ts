@@ -8,10 +8,6 @@ const createLimiter = (windowMs: number, max: number, prefix: string) =>
     max,
     standardHeaders: true, // Returns RateLimit-* headers
     legacyHeaders: false,
-    keyGenerator: (req) => {
-      // Use real IP behind proxies
-      return req.ip ?? req.socket.remoteAddress ?? 'unknown';
-    },
     store: new RedisStore({
       // @ts-expect-error - ioredis.call expects Command argument types
       sendCommand: (...args: string[]) => redis.call(args[0]!, ...args.slice(1)),
