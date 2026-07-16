@@ -1,5 +1,6 @@
 import { SubscriptionRepository } from './subscription.repository.js';
 import { ApiError } from '../../utils/ApiError.js';
+import { cache } from '../../utils/cache.js';
 
 const subscriptionRepository = new SubscriptionRepository();
 
@@ -19,6 +20,10 @@ export const subscriptionService = {
       await subscriptionRepository.create(userId, channelId);
       message = 'Subscribed successfully.';
     }
+
+    // Invalidate caches
+    await cache.delPattern('dashboard:*');
+    await cache.delPattern('channel:*');
 
     const count = await subscriptionRepository.countSubscribers(channelId);
     return { subscribed: !existing, count, message };

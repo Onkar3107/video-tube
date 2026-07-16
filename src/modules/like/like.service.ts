@@ -1,4 +1,5 @@
 import { LikeRepository } from './like.repository.js';
+import { cache } from '../../utils/cache.js';
 
 const likeRepository = new LikeRepository();
 
@@ -14,6 +15,9 @@ export const likeService = {
       await likeRepository.createVideoLike(userId, videoId);
       message = 'Video liked successfully.';
     }
+
+    // Invalidate dashboard stats
+    await cache.delPattern('dashboard:*');
 
     const likeCount = await likeRepository.countVideoLikes(videoId);
     return { likeCount, liked: !existingLike, message };

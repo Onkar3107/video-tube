@@ -1,6 +1,8 @@
 import { VideoRepository } from './video.repository.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../../utils/cloudinary.js';
+import { cache, CacheKeys, CacheTTL } from '../../utils/cache.js';
+import { logger } from '../../config/logger.js';
 import type { GetVideosDto, PublishVideoDto, UpdateVideoDto } from './video.dto.js';
 import type { Prisma, VideoStatus } from '@prisma/client';
 
@@ -8,6 +10,10 @@ const videoRepository = new VideoRepository();
 
 export const videoService = {
   async getAllVideos(dto: GetVideosDto) {
+    const cacheKey = CacheKeys.videoList(dto.page, dto.limit, dto.query ?? '', dto.userId);
+    const cached = await cache.get<any>(cacheKey);
+    if (cached) return cached;
+
     const skip = (dto.page - 1) * dto.limit;
 
     const where: Prisma.VideoWhereInput = {
@@ -35,7 +41,7 @@ export const videoService = {
 
     const totalPages = Math.ceil(total / dto.limit);
 
-    return {
+    const result = {
       videos,
       pagination: {
         total,
@@ -46,6 +52,9 @@ export const videoService = {
         hasPrevPage: dto.page > 1,
       },
     };
+
+    await cache.set(cacheKey, result, CacheTTL.VIDEO_LIST);
+    return result;
   },
 
   async publishVideo(dto: PublishVideoDto, ownerId: string, files: any) {
@@ -72,7 +81,7 @@ export const videoService = {
       }
       thumbnailUrl = thumbResult.secure_url;
 
-      return await videoRepository.create({
+      const video = await videoRepository.create({
         videoFile: videoUrl,
         thumbnail: thumbnailUrl,
         title: dto.title,
@@ -81,6 +90,10 @@ export const videoService = {
         owner: { connect: { id: ownerId } },
         status: 'READY',
       });
+
+      await cache.delPattern('videos:*');
+      await cache.delPattern('dashboard:*');
+      return video;
     } catch (error) {
       if (videoUrl) await deleteFromCloudinary(videoUrl);
       if (thumbnailUrl) await deleteFromCloudinary(thumbnailUrl);
@@ -89,15 +102,30 @@ export const videoService = {
   },
 
   async getVideoById(id: string, userId?: string) {
-    const video = await videoRepository.findByIdWithOwner(id);
+    // 1. Check cache first
+    const cacheKey = CacheKeys.video(id);
+    let video = await cache.get<any>(cacheKey);
+
     if (!video) {
-      throw new ApiError(404, 'Video not found.');
+      // 2. Fetch from DB on cache miss
+      video = await videoRepository.findByIdWithOwner(id);
+      if (!video) {
+        throw new ApiError(404, 'Video not found.');
+      }
+      // 3. Store in cache
+      await cache.set(cacheKey, video, CacheTTL.VIDEO);
     }
 
-    await videoRepository.incrementViews(id);
+    // 4. View increment and watch history are run out-of-band so response is fast
+    // We don't await them, but handle potential errors
+    videoRepository.incrementViews(id).catch((err) => {
+      logger.error({ err }, 'Failed to increment views');
+    });
 
     if (userId) {
-      await videoRepository.recordWatchHistory(userId, id);
+      videoRepository.recordWatchHistory(userId, id).catch((err) => {
+        logger.error({ err }, 'Failed to record watch history');
+      });
     }
 
     return video;
@@ -127,6 +155,12 @@ export const videoService = {
 
     try {
       const updated = await videoRepository.update(id, updateData);
+      
+      // Invalidate caches
+      await cache.del(CacheKeys.video(id));
+      await cache.delPattern('videos:*');
+      await cache.delPattern('dashboard:*');
+
       if (newThumbnailUrl && oldThumbnailUrl) {
         await deleteFromCloudinary(oldThumbnailUrl);
       }
@@ -146,6 +180,11 @@ export const videoService = {
 
     await videoRepository.delete(id);
 
+    // Invalidate caches
+    await cache.del(CacheKeys.video(id));
+    await cache.delPattern('videos:*');
+    await cache.delPattern('dashboard:*');
+
     if (video.videoFile) await deleteFromCloudinary(video.videoFile);
     if (video.thumbnail) await deleteFromCloudinary(video.thumbnail);
 
@@ -159,8 +198,15 @@ export const videoService = {
       throw new ApiError(403, 'Unauthorized to update this video.');
     }
 
-    return videoRepository.update(id, {
+    const updated = await videoRepository.update(id, {
       isPublished: !video.isPublished,
     });
+
+    // Invalidate caches
+    await cache.del(CacheKeys.video(id));
+    await cache.delPattern('videos:*');
+    await cache.delPattern('dashboard:*');
+
+    return updated;
   },
 };

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { UserRepository } from './user.repository.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../../utils/cloudinary.js';
+import { cache, CacheKeys, CacheTTL } from '../../utils/cache.js';
 import type { RegisterUserDto, LoginUserDto, ChangePasswordDto, UpdateProfileDto } from './user.dto.js';
 import type { Request } from 'express';
 
@@ -101,6 +102,10 @@ export const userService = {
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     const updated = await userRepository.update(userId, dto);
+    
+    // Invalidate profile cache
+    await cache.del(CacheKeys.channelProfile(updated.username));
+
     const { password: _p, refreshToken: _rt, ...safeUser } = updated;
     return safeUser;
   },
@@ -114,6 +119,10 @@ export const userService = {
     if (!uploaded) throw new ApiError(500, 'Failed to upload avatar');
 
     const updated = await userRepository.update(userId, { avatar: uploaded.secure_url });
+    
+    // Invalidate profile cache
+    await cache.del(CacheKeys.channelProfile(updated.username));
+
     if (oldAvatar) await deleteFromCloudinary(oldAvatar);
     
     const { password: _p, refreshToken: _rt, ...safeUser } = updated;
@@ -129,6 +138,10 @@ export const userService = {
     if (!uploaded) throw new ApiError(500, 'Failed to upload cover image');
 
     const updated = await userRepository.update(userId, { coverImage: uploaded.secure_url });
+    
+    // Invalidate profile cache
+    await cache.del(CacheKeys.channelProfile(updated.username));
+
     if (oldCover) await deleteFromCloudinary(oldCover);
     
     const { password: _p, refreshToken: _rt, ...safeUser } = updated;
@@ -136,6 +149,10 @@ export const userService = {
   },
 
   async getChannelProfile(username: string, requesterId?: string) {
+    const cacheKey = CacheKeys.channelProfile(username);
+    const cached = await cache.get<any>(cacheKey);
+    if (cached) return cached;
+
     const user = await userRepository.findByUsername(username);
     if (!user) throw new ApiError(404, 'Channel does not exist');
 
@@ -146,7 +163,10 @@ export const userService = {
       : false;
 
     const { subscribers: _s, subscriptions: _sub, ...rest } = user;
-    return { ...rest, subscribersCount, subscribedToCount, isSubscribed };
+    const result = { ...rest, subscribersCount, subscribedToCount, isSubscribed };
+
+    await cache.set(cacheKey, result, CacheTTL.CHANNEL);
+    return result;
   },
 
   async getWatchHistory(userId: string) {

@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
+import { logger } from '../config/logger.js';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -18,7 +19,7 @@ export const uploadOnCloudinary = async (localFilePath: string | undefined) => {
     fs.unlinkSync(localFilePath);
     return response;
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
+    logger.error({ err: error }, 'Cloudinary upload error');
     if (localFilePath && fs.existsSync(localFilePath)) {
       fs.unlinkSync(localFilePath);
     }
@@ -37,7 +38,7 @@ export const deleteFromCloudinary = async (fileUrl: string | undefined) => {
     const response = await cloudinary.uploader.destroy(publicId);
     return response;
   } catch (error) {
-    console.error('Cloudinary delete error:', error);
+    logger.error({ err: error }, 'Cloudinary delete error');
     return null;
   }
 };
