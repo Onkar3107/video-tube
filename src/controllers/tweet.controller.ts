@@ -1,116 +1,102 @@
-import { isValidObjectId } from 'mongoose';
-import { Tweet } from '../models/tweet.model.js';
-import { User } from '../models/user.model.js';
+import { prisma } from '../config/database.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import type { Request, Response } from 'express';
 
+// ─── Create Tweet ─────────────────────────────────────────────────────────────
+
 const createTweet = asyncHandler(async (req: Request, res: Response) => {
   const { tweet } = req.body;
 
-  if (!tweet) {
+  if (!tweet?.trim()) {
     throw new ApiError(400, 'Tweet field is mandatory.');
   }
 
-  const newTweet = new Tweet({
-    content: tweet.trim(),
-    owner: req.user?._id,
+  const newTweet = await prisma.tweet.create({
+    data: { content: tweet.trim(), ownerId: req.user!.id },
   });
 
-  try {
-    await newTweet.save();
-  } catch {
-    throw new ApiError(500, 'Error while uploading tweet.');
-  }
-
-  res
-    .status(200)
-    .json(new ApiResponse(201, newTweet, 'Tweet uploaded successfully.'));
+  res.status(201).json(new ApiResponse(201, newTweet, 'Tweet uploaded successfully.'));
 });
 
-const getUserTweets = asyncHandler(async (req: Request, res: Response) => {
-  const { userId } = req.params;
+// ─── Get User Tweets ──────────────────────────────────────────────────────────
 
-  if (!userId || !isValidObjectId(userId)) {
+const getUserTweets = asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.params as Record<string, string>;
+
+  if (!userId) {
     throw new ApiError(400, 'Invalid User ID.');
   }
 
-  const user = await User.findById(userId).select('_id');
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
 
   if (!user) {
     throw new ApiError(404, 'User does not exist.');
   }
 
-  const tweets = await Tweet.find({ owner: userId })
-    .sort({ createdAt: -1 })
-    .lean();
+  const tweets = await prisma.tweet.findMany({
+    where: { ownerId: userId },
+    orderBy: { createdAt: 'desc' },
+  });
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        tweets,
-        tweets.length
-          ? 'Tweets fetched successfully.'
-          : 'User has not posted any tweets yet.'
-      )
-    );
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      tweets,
+      tweets.length ? 'Tweets fetched successfully.' : 'User has not posted any tweets yet.',
+    ),
+  );
 });
 
+// ─── Update Tweet ─────────────────────────────────────────────────────────────
+
 const updateTweet = asyncHandler(async (req: Request, res: Response) => {
-  const { tweetId } = req.params;
+  const { tweetId } = req.params as Record<string, string>;
   const tweet = req.body.tweet?.trim();
 
   if (!tweet) {
     throw new ApiError(400, 'Tweet is mandatory field.');
   }
 
-  if (!tweetId || !isValidObjectId(tweetId)) {
+  if (!tweetId) {
     throw new ApiError(400, 'Invalid Tweet ID.');
   }
 
-  const updatedTweet = await Tweet.findOneAndUpdate(
-    { _id: tweetId, owner: req.user?._id },
-    { content: tweet },
-    { new: true, runValidators: true }
-  );
+  const existing = await prisma.tweet.findFirst({
+    where: { id: tweetId, ownerId: req.user!.id },
+  });
 
-  if (!updatedTweet) {
-    throw new ApiError(
-      404,
-      "Tweet not found or you don't have permission to update it."
-    );
+  if (!existing) {
+    throw new ApiError(404, "Tweet not found or you don't have permission to update it.");
   }
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, updatedTweet, 'Tweet updated successfully.'));
+  const updatedTweet = await prisma.tweet.update({
+    where: { id: tweetId },
+    data: { content: tweet },
+  });
+
+  res.status(200).json(new ApiResponse(200, updatedTweet, 'Tweet updated successfully.'));
 });
 
-const deleteTweet = asyncHandler(async (req: Request, res: Response) => {
-  const { tweetId } = req.params;
+// ─── Delete Tweet ─────────────────────────────────────────────────────────────
 
-  if (!tweetId || !isValidObjectId(tweetId)) {
+const deleteTweet = asyncHandler(async (req: Request, res: Response) => {
+  const { tweetId } = req.params as Record<string, string>;
+
+  if (!tweetId) {
     throw new ApiError(400, 'Invalid tweet ID.');
   }
 
-  const deletedTweet = await Tweet.findOneAndDelete({
-    _id: tweetId,
-    owner: req.user?._id,
+  const deleted = await prisma.tweet.deleteMany({
+    where: { id: tweetId, ownerId: req.user!.id },
   });
 
-  if (!deletedTweet) {
-    throw new ApiError(
-      404,
-      "Tweet not found or you don't have permission to delete it."
-    );
+  if (deleted.count === 0) {
+    throw new ApiError(404, "Tweet not found or you don't have permission to delete it.");
   }
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, deletedTweet, 'Tweet deleted successfully.'));
+  res.status(200).json(new ApiResponse(200, {}, 'Tweet deleted successfully.'));
 });
 
 export { createTweet, getUserTweets, updateTweet, deleteTweet };

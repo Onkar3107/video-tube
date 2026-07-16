@@ -1,154 +1,96 @@
-import mongoose, { isValidObjectId } from 'mongoose';
-import { Subscription } from '../models/subscription.model.js';
+import { prisma } from '../config/database.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import type { Request, Response } from 'express';
 
-const toggleSubscription = asyncHandler(async (req: Request, res: Response) => {
-  const { channelId } = req.params;
-  const userId = req.user?._id.toString();
+// ─── Toggle Subscription ──────────────────────────────────────────────────────
 
-  if (!channelId || !isValidObjectId(channelId)) {
-    throw new ApiError(400, "Invalid channel ID'");
+const toggleSubscription = asyncHandler(async (req: Request, res: Response) => {
+  const { channelId } = req.params as Record<string, string>;
+  const userId = req.user!.id;
+
+  if (!channelId) {
+    throw new ApiError(400, 'Invalid channel ID');
   }
 
   if (channelId === userId) {
-    throw new ApiError(400, 'You can not subscribe to your own channel.');
+    throw new ApiError(400, 'You cannot subscribe to your own channel.');
   }
 
-  const existedSubscription = await Subscription.findOneAndDelete({
-    subscriber: userId,
-    channel: channelId,
-  }).lean();
+  const existing = await prisma.subscription.findUnique({
+    where: { subscriberId_channelId: { subscriberId: userId, channelId } },
+  });
 
-  let message: string, subscriptionData: any;
-
-  if (existedSubscription) {
-    message = 'Unsubscribed successfully.';
-    subscriptionData = existedSubscription;
-  } else {
-    message = 'Subscribed successfully.';
-    subscriptionData = await Subscription.create({
-      subscriber: userId,
-      channel: channelId,
+  let message: string;
+  if (existing) {
+    await prisma.subscription.delete({
+      where: { subscriberId_channelId: { subscriberId: userId, channelId } },
     });
+    message = 'Unsubscribed successfully.';
+  } else {
+    await prisma.subscription.create({ data: { subscriberId: userId, channelId } });
+    message = 'Subscribed successfully.';
   }
 
-  const count = await Subscription.countDocuments({ channel: channelId });
+  const count = await prisma.subscription.count({ where: { channelId } });
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, { subscriptionData, count }, message));
+  res.status(200).json(new ApiResponse(200, { subscribed: !existing, count }, message));
 });
 
-// controller to return subscriber list of a channel
-const getUserChannelSubscribers = asyncHandler(async (req: Request, res: Response) => {
-  const { channelId } = req.params;
+// ─── Get Channel Subscribers ──────────────────────────────────────────────────
 
-  if (!channelId || !isValidObjectId(channelId)) {
+const getUserChannelSubscribers = asyncHandler(async (req: Request, res: Response) => {
+  const { channelId } = req.params as Record<string, string>;
+
+  if (!channelId) {
     throw new ApiError(400, 'Invalid Channel ID.');
   }
 
-  const subscribers = await Subscription.aggregate([
-    {
-      $match: {
-        channel: new mongoose.Types.ObjectId(channelId as string),
-      },
+  const result = await prisma.subscription.findMany({
+    where: { channelId },
+    include: {
+      subscriber: { select: { id: true, username: true, avatar: true, fullName: true } },
     },
-    {
-      $lookup: {
-        from: 'users',
-        localField: 'channel',
-        foreignField: '_id',
-        as: 'channelInfo',
-      },
-    },
-    {
-      $unwind: '$channelInfo',
-    },
-    {
-      $group: {
-        _id: '$channel',
-        channelInfo: { $first: '$channelInfo' },
-        subscriberCount: { $sum: 1 },
-      },
-    },
-    {
-      $project: {
-        'channelInfo.password': 0,
-        'channelInfo.email': 0,
-        'channelInfo.watcHHistory': 0,
-        'channelInfo.__v': 0,
-      },
-    },
-  ]);
+  });
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        subscribers?.length > 0 ? subscribers[0] : {},
-        subscribers?.length > 0
-          ? 'Subscribers fetched successfully'
-          : 'Channel has no subscribers yet.'
-      )
-    );
+  const subscriberCount = result.length;
+  const subscribers = result.map((s) => s.subscriber);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { subscriberCount, subscribers },
+      subscriberCount > 0 ? 'Subscribers fetched successfully' : 'Channel has no subscribers yet.',
+    ),
+  );
 });
 
-// controller to return channel list to which user has subscribed
-const getSubscribedChannels = asyncHandler(async (req: Request, res: Response) => {
-  const { subscriberId } = req.params;
+// ─── Get Subscribed Channels ──────────────────────────────────────────────────
 
-  if (!subscriberId || !isValidObjectId(subscriberId)) {
+const getSubscribedChannels = asyncHandler(async (req: Request, res: Response) => {
+  const { subscriberId } = req.params as Record<string, string>;
+
+  if (!subscriberId) {
     throw new ApiError(400, 'Invalid subscriber ID.');
   }
 
-  const channelList = await Subscription.aggregate([
-    {
-      $match: {
-        subscriber: new mongoose.Types.ObjectId(subscriberId as string),
-      },
+  const result = await prisma.subscription.findMany({
+    where: { subscriberId },
+    include: {
+      channel: { select: { id: true, username: true, avatar: true, fullName: true } },
     },
-    {
-      $lookup: {
-        from: 'users',
-        localField: 'channel',
-        foreignField: '_id',
-        as: 'channelInfo',
-      },
-    },
-    {
-      $unwind: '$channelInfo',
-    },
-    {
-      $group: {
-        _id: '$subscriber',
-        channelInfo: { $push: '$channelInfo' },
-      },
-    },
-    {
-      $project: {
-        'channelInfo.password': 0,
-        'channelInfo.email': 0,
-        'channelInfo.watcHHistory': 0,
-        'channelInfo.__v': 0,
-      },
-    },
-  ]);
+  });
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        channelList?.length > 0 ? channelList[0] : {},
-        channelList?.length > 0
-          ? 'Channel list fetched successfully.'
-          : 'User has not subscribed to any channel.'
-      )
-    );
+  const channels = result.map((s) => s.channel);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { channels, count: channels.length },
+      channels.length > 0 ? 'Channel list fetched successfully.' : 'User has not subscribed to any channel.',
+    ),
+  );
 });
 
 export { toggleSubscription, getUserChannelSubscribers, getSubscribedChannels };

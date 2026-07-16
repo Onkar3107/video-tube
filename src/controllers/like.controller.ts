@@ -1,152 +1,115 @@
-import mongoose, { isValidObjectId } from 'mongoose';
-import { Like } from '../models/like.model.js';
+import { prisma } from '../config/database.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import type { Request, Response } from 'express';
 
-const toggleVideoLike = asyncHandler(async (req: Request, res: Response) => {
-  const { videoId } = req.params;
-  const userId = req.user?._id.toString();
+// ─── Toggle Video Like ────────────────────────────────────────────────────────
 
-  if (!videoId || !isValidObjectId(videoId)) {
+const toggleVideoLike = asyncHandler(async (req: Request, res: Response) => {
+  const { videoId } = req.params as Record<string, string>;
+  const userId = req.user!.id;
+
+  if (!videoId) {
     throw new ApiError(400, 'Invalid video ID.');
   }
 
-  const existedLike = await Like.findOneAndDelete({
-    video: videoId,
-    likedBy: userId,
-  }).lean();
-
-  let message: string, data: any;
-
-  if (existedLike) {
-    message = 'Unlike the video successfully.';
-    data = existedLike;
-  } else {
-    message = 'Video liked successfully.';
-    data = await Like.create({
-      video: videoId,
-      likedBy: userId,
-    });
-  }
-
-  const likeCount = await Like.countDocuments({
-    video: videoId,
+  const existingLike = await prisma.like.findUnique({
+    where: { likedById_videoId: { likedById: userId, videoId } },
   });
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, { data, likeCount }, message));
+  let message: string;
+  if (existingLike) {
+    await prisma.like.delete({
+      where: { likedById_videoId: { likedById: userId, videoId } },
+    });
+    message = 'Unliked successfully.';
+  } else {
+    await prisma.like.create({ data: { likedById: userId, videoId } });
+    message = 'Video liked successfully.';
+  }
+
+  const likeCount = await prisma.like.count({ where: { videoId } });
+
+  res.status(200).json(new ApiResponse(200, { likeCount, liked: !existingLike }, message));
 });
 
-const toggleCommentLike = asyncHandler(async (req: Request, res: Response) => {
-  const { commentId } = req.params;
-  const userId = req.user?._id?.toString();
+// ─── Toggle Comment Like ──────────────────────────────────────────────────────
 
-  if (!commentId || !isValidObjectId(commentId)) {
+const toggleCommentLike = asyncHandler(async (req: Request, res: Response) => {
+  const { commentId } = req.params as Record<string, string>;
+  const userId = req.user!.id;
+
+  if (!commentId) {
     throw new ApiError(400, 'Invalid comment ID.');
   }
 
-  const existedComment = await Like.findOneAndDelete({
-    comment: commentId,
-    likedBy: userId,
+  const existingLike = await prisma.like.findUnique({
+    where: { likedById_commentId: { likedById: userId, commentId } },
   });
 
-  let data: any, message: string;
-
-  if (existedComment) {
-    message = 'Comment unlike successfully.';
-    data = existedComment;
-  } else {
-    message = 'Comment liked successfully.';
-    data = await Like.create({
-      comment: commentId,
-      likedBy: userId,
+  let message: string;
+  if (existingLike) {
+    await prisma.like.delete({
+      where: { likedById_commentId: { likedById: userId, commentId } },
     });
+    message = 'Comment unlike successfully.';
+  } else {
+    await prisma.like.create({ data: { likedById: userId, commentId } });
+    message = 'Comment liked successfully.';
   }
 
-  const count = await Like.countDocuments({
-    comment: commentId,
-  });
+  const count = await prisma.like.count({ where: { commentId } });
 
-  res.status(200).json(new ApiResponse(200, { data, count }, message));
+  res.status(200).json(new ApiResponse(200, { count, liked: !existingLike }, message));
 });
 
-const toggleTweetLike = asyncHandler(async (req: Request, res: Response) => {
-  const { tweetId } = req.params;
-  const userId = req.user?._id?.toString();
+// ─── Toggle Tweet Like ────────────────────────────────────────────────────────
 
-  if (!tweetId || !isValidObjectId(tweetId)) {
+const toggleTweetLike = asyncHandler(async (req: Request, res: Response) => {
+  const { tweetId } = req.params as Record<string, string>;
+  const userId = req.user!.id;
+
+  if (!tweetId) {
     throw new ApiError(400, 'Invalid tweet ID.');
   }
 
-  const existedTweet = await Like.findOneAndDelete({
-    tweet: tweetId,
-    likedBy: userId,
+  const existingLike = await prisma.like.findUnique({
+    where: { likedById_tweetId: { likedById: userId, tweetId } },
   });
 
-  let data: any, message: string;
-
-  if (existedTweet) {
-    message = 'Tweet unlike successfully.';
-    data = existedTweet;
-  } else {
-    message = 'Tweet liked successfully.';
-    data = await Like.create({
-      tweet: tweetId,
-      likedBy: userId,
+  let message: string;
+  if (existingLike) {
+    await prisma.like.delete({
+      where: { likedById_tweetId: { likedById: userId, tweetId } },
     });
+    message = 'Tweet unlike successfully.';
+  } else {
+    await prisma.like.create({ data: { likedById: userId, tweetId } });
+    message = 'Tweet liked successfully.';
   }
 
-  const count = await Like.countDocuments({
-    tweet: tweetId,
-  });
+  const count = await prisma.like.count({ where: { tweetId } });
 
-  res.status(200).json(new ApiResponse(200, { data, count }, message));
+  res.status(200).json(new ApiResponse(200, { count, liked: !existingLike }, message));
 });
 
+// ─── Get Liked Videos ─────────────────────────────────────────────────────────
+
 const getLikedVideos = asyncHandler(async (req: Request, res: Response) => {
-  const userIdObj = new mongoose.Types.ObjectId(req.user?._id);
+  const liked = await prisma.like.findMany({
+    where: { likedById: req.user!.id, videoId: { not: null } },
+    include: {
+      video: {
+        include: { owner: { select: { username: true, avatar: true } } },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 
-  const likedVideos = await Like.aggregate([
-    {
-      $match: {
-        likedBy: userIdObj,
-      },
-    },
-    {
-      $lookup: {
-        from: 'videos',
-        localField: 'video',
-        foreignField: '_id',
-        as: 'video',
-      },
-    },
-    {
-      $unwind: '$video',
-    },
-    {
-      $group: {
-        _id: '$likedBy',
-        video: {
-          $push: '$video',
-        },
-        count: { $sum: 1 },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        count: 1,
-        video: 1,
-      },
-    },
-  ]);
+  const videos = liked.map((l) => l.video).filter(Boolean);
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, likedVideos[0], 'Liked videos fetched.'));
+  res.status(200).json(new ApiResponse(200, { videos, count: videos.length }, 'Liked videos fetched.'));
 });
 
 export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos };

@@ -1,17 +1,16 @@
 // src/types/express.d.ts
-
-export interface AuthUser {
-  _id: string;
-  username: string;
-  email: string;
-  fullName: string;
-  avatar: string;
-}
+export {};
 
 declare global {
   namespace Express {
     interface Request {
-      user?: AuthUser;
+      user?: {
+        id: string;
+        username: string;
+        email: string;
+        fullName: string;
+        avatar: string;
+      };
     }
   }
 }

@@ -1,18 +1,20 @@
-import mongoose, { isValidObjectId } from 'mongoose';
-import { Comment } from '../models/comment.model.js';
+import { prisma } from '../config/database.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import type { Request, Response } from 'express';
 
+// ─── Get Comments for a Video (paginated) ────────────────────────────────────
+
 const getVideoComments = asyncHandler(async (req: Request, res: Response) => {
-  const { videoId } = req.params;
-  let { page = 1, limit = 10 } = req.query as any;
+  const { videoId } = req.params as Record<string, string>;
+  const pageStr = req.query.page as string;
+  const limitStr = req.query.limit as string;
 
-  page = parseInt(page as string, 10);
-  limit = parseInt(limit as string, 10);
+  const page = Math.max(1, parseInt(pageStr ?? '1', 10));
+  const limit = Math.min(50, Math.max(1, parseInt(limitStr ?? '10', 10)));
 
-  if (!videoId || !isValidObjectId(videoId)) {
+  if (!videoId) {
     throw new ApiError(400, 'Invalid video ID.');
   }
 
@@ -20,45 +22,20 @@ const getVideoComments = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(400, 'Page and limit must be positive numbers.');
   }
 
-  const comments = await Comment.aggregate([
-    {
-      $match: {
-        video: new mongoose.Types.ObjectId(videoId as string),
+  const [comments, total] = await Promise.all([
+    prisma.comment.findMany({
+      where: { videoId },
+      include: {
+        owner: { select: { id: true, username: true, avatar: true } },
       },
-    },
-    {
-      $lookup: {
-        from: 'users',
-        localField: 'owner',
-        foreignField: '_id',
-        as: 'owner',
-      },
-    },
-    { $unwind: '$owner' },
-    {
-      $project: {
-        content: 1,
-        createdAt: 1,
-        updatedAt: 1,
-        owner: {
-          _id: '$owner._id',
-          username: '$owner.username',
-          avatar: '$owner.avatar',
-        },
-      },
-    },
-    { $sort: { createdAt: -1 } },
-    { $skip: (page - 1) * limit },
-    { $limit: limit },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.comment.count({ where: { videoId } }),
   ]);
 
-  // Get total comments count
-  const totalComments = await Comment.countDocuments({
-    video: new mongoose.Types.ObjectId(videoId as string),
-  });
-
-  // Pagination metadata
-  const totalPages = Math.ceil(totalComments / limit);
+  const totalPages = Math.ceil(total / limit);
   const hasNextPage = page < totalPages;
   const hasPrevPage = page > 1;
 
@@ -68,7 +45,7 @@ const getVideoComments = asyncHandler(async (req: Request, res: Response) => {
       {
         comments,
         pagination: {
-          totalComments,
+          totalComments: total,
           totalPages,
           hasNextPage,
           hasPrevPage,
@@ -76,104 +53,83 @@ const getVideoComments = asyncHandler(async (req: Request, res: Response) => {
           prevPage: hasPrevPage ? page - 1 : null,
         },
       },
-      'Comments retrieved successfully.'
-    )
+      'Comments retrieved successfully.',
+    ),
   );
 });
 
+// ─── Add Comment ──────────────────────────────────────────────────────────────
+
 const addComment = asyncHandler(async (req: Request, res: Response) => {
-  const { videoId } = req.params;
-  const comment = req.body.comment?.trim();
+  const { videoId } = req.params as Record<string, string>;
+  const comment = req.body.comment?.trim() as string | undefined;
 
   if (!comment) {
     throw new ApiError(400, 'Comment field is mandatory.');
   }
 
-  if (!videoId || !isValidObjectId(videoId)) {
+  if (!videoId) {
     throw new ApiError(400, 'Invalid video ID.');
   }
 
-  const newComment = new Comment({
-    content: comment,
-    video: videoId,
-    owner: req.user?._id,
+  const newComment = await prisma.comment.create({
+    data: { content: comment, videoId, ownerId: req.user!.id },
+    include: { owner: { select: { id: true, username: true, avatar: true } } },
   });
 
-  let savedComment;
-
-  try {
-    savedComment = await newComment.save();
-  } catch (error) {
-    console.error('Database Write error: ', error);
-    throw new ApiError(500, 'Failed to add comment.');
-  }
-
-  res
-    .status(201)
-    .json(new ApiResponse(201, savedComment, 'Comment added successfully.'));
+  res.status(201).json(new ApiResponse(201, newComment, 'Comment added successfully.'));
 });
 
+// ─── Update Comment ───────────────────────────────────────────────────────────
+
 const updateComment = asyncHandler(async (req: Request, res: Response) => {
-  const { commentId } = req.params;
-  const comment = req.body.comment?.trim();
+  const { commentId } = req.params as Record<string, string>;
+  const comment = req.body.comment?.trim() as string | undefined;
 
   if (!comment) {
     throw new ApiError(400, 'Comment field is mandatory.');
   }
 
-  if (!commentId || !isValidObjectId(commentId)) {
+  if (!commentId) {
     throw new ApiError(400, 'Invalid comment ID.');
   }
 
-  const commentExists = await Comment.exists({
-    _id: commentId,
-    owner: req.user?._id,
+  const existing = await prisma.comment.findFirst({
+    where: { id: commentId, ownerId: req.user!.id },
   });
 
-  if (!commentExists) {
-    throw new ApiError(
-      404,
-      "Comment not found or you don't have permission to update it."
-    );
+  if (!existing) {
+    throw new ApiError(404, "Comment not found or you don't have permission to update it.");
   }
 
-  const updatedComment = await Comment.findByIdAndUpdate(
-    commentId,
-    { content: comment },
-    { new: true, runValidators: true }
-  );
+  const updatedComment = await prisma.comment.update({
+    where: { id: commentId },
+    data: { content: comment },
+  });
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200, updatedComment, 'Comment updated successfully.')
-    );
+  res.status(200).json(new ApiResponse(200, updatedComment, 'Comment updated successfully.'));
 });
 
-const deleteComment = asyncHandler(async (req: Request, res: Response) => {
-  const { commentId } = req.params;
+// ─── Delete Comment ───────────────────────────────────────────────────────────
 
-  if (!commentId || !isValidObjectId(commentId)) {
+const deleteComment = asyncHandler(async (req: Request, res: Response) => {
+  const { commentId } = req.params as Record<string, string>;
+
+  if (!commentId) {
     throw new ApiError(400, 'Invalid comment ID.');
   }
 
-  const deletedComment = await Comment.findOneAndDelete({
-    _id: commentId,
-    owner: req.user?._id,
-  }).lean();
+  const existing = await prisma.comment.findFirst({
+    where: { id: commentId, ownerId: req.user!.id },
+  });
 
-  if (!deletedComment) {
-    throw new ApiError(
-      404,
-      "Comment not found or you don't have permission to delete it."
-    );
+  if (!existing) {
+    throw new ApiError(404, "Comment not found or you don't have permission to delete it.");
   }
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200, deletedComment, 'Comment deleted successfully.')
-    );
+  await prisma.comment.delete({ where: { id: commentId } });
+
+  res.status(200).json(new ApiResponse(200, existing, 'Comment deleted successfully.'));
 });
 
 export { getVideoComments, addComment, updateComment, deleteComment };

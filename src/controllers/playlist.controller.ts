@@ -1,9 +1,10 @@
-import { isValidObjectId } from 'mongoose';
-import { Playlist } from '../models/playlist.model.js';
+import { prisma } from '../config/database.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import type { Request, Response } from 'express';
+
+// ─── Create Playlist ──────────────────────────────────────────────────────────
 
 const createPlaylist = asyncHandler(async (req: Request, res: Response) => {
   const { name, description } = req.body;
@@ -12,202 +13,176 @@ const createPlaylist = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(400, 'Name and Description are required fields.');
   }
 
-  const playlist = new Playlist({
-    name: name.trim(),
-    description: description.trim(),
-    owner: req.user?._id,
+  const playlist = await prisma.playlist.create({
+    data: {
+      name: name.trim(),
+      description: description.trim(),
+      ownerId: req.user!.id,
+    },
   });
 
-  try {
-    await playlist.save();
-  } catch {
-    throw new ApiError(500, 'Error while creating playlist');
-  }
-
-  res
-    .status(201)
-    .json(new ApiResponse(201, playlist, 'Playlist created successfully.'));
+  res.status(201).json(new ApiResponse(201, playlist, 'Playlist created successfully.'));
 });
 
-const getUserPlaylists = asyncHandler(async (req: Request, res: Response) => {
-  const { userId } = req.params;
+// ─── Get User Playlists ───────────────────────────────────────────────────────
 
-  if (!userId || !isValidObjectId(userId)) {
+const getUserPlaylists = asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.params as Record<string, string>;
+
+  if (!userId) {
     throw new ApiError(400, 'Invalid User ID.');
   }
 
-  const playlists = await Playlist.find({ owner: userId }).lean();
+  const playlists = await prisma.playlist.findMany({
+    where: { ownerId: userId },
+    include: {
+      videos: {
+        include: { video: { select: { id: true, title: true, thumbnail: true } } },
+        orderBy: { position: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        playlists,
-        playlists.length < 1
-          ? 'User has no playlists.'
-          : 'Playlist fetched successfully.'
-      )
-    );
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      playlists,
+      playlists.length < 1 ? 'User has no playlists.' : 'Playlists fetched successfully.',
+    ),
+  );
 });
 
-const getPlaylistById = asyncHandler(async (req: Request, res: Response) => {
-  const { playlistId } = req.params;
+// ─── Get Playlist by ID ───────────────────────────────────────────────────────
 
-  if (!playlistId || !isValidObjectId(playlistId)) {
+const getPlaylistById = asyncHandler(async (req: Request, res: Response) => {
+  const { playlistId } = req.params as Record<string, string>;
+
+  if (!playlistId) {
     throw new ApiError(400, 'Invalid playlist ID.');
   }
 
-  const playlist = await Playlist.findById(playlistId).lean();
+  const playlist = await prisma.playlist.findUnique({
+    where: { id: playlistId },
+    include: {
+      owner: { select: { id: true, username: true, avatar: true } },
+      videos: {
+        include: {
+          video: {
+            include: { owner: { select: { username: true, avatar: true } } },
+          },
+        },
+        orderBy: { position: 'asc' },
+      },
+    },
+  });
 
   if (!playlist) {
     throw new ApiError(404, 'Playlist not found.');
   }
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        playlist,
-        playlist.videos.length === 0
-          ? 'Playlist fetched successfully but contains no videos.'
-          : 'Playlist fetched successfully.'
-      )
-    );
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      playlist,
+      playlist.videos.length === 0
+        ? 'Playlist fetched successfully but contains no videos.'
+        : 'Playlist fetched successfully.',
+    ),
+  );
 });
+
+// ─── Add Video to Playlist ────────────────────────────────────────────────────
 
 const addVideoToPlaylist = asyncHandler(async (req: Request, res: Response) => {
-  const { playlistId, videoId } = req.params;
+  const { playlistId, videoId } = req.params as Record<string, string>;
 
-  if (!playlistId || !isValidObjectId(playlistId)) {
-    throw new ApiError(400, 'Invalid Playlist ID');
-  }
+  if (!playlistId) throw new ApiError(400, 'Invalid Playlist ID');
+  if (!videoId) throw new ApiError(400, 'Invalid Video ID');
 
-  if (!videoId || !isValidObjectId(videoId)) {
-    throw new ApiError(400, 'Invalid Video ID');
-  }
+  const playlist = await prisma.playlist.findUnique({ where: { id: playlistId } });
+  if (!playlist) throw new ApiError(404, 'Playlist not found.');
+  if (playlist.ownerId !== req.user!.id) throw new ApiError(403, 'Unauthorized attempt to add video to playlist.');
 
-  const newPlaylist = await Playlist.findOneAndUpdate(
-    { _id: playlistId, owner: req.user?._id, videos: { $ne: videoId } },
-    { $push: { videos: videoId } },
-    { new: true }
-  );
+  const existing = await prisma.playlistVideo.findUnique({
+    where: { playlistId_videoId: { playlistId, videoId } },
+  });
+  if (existing) throw new ApiError(400, 'Video is already in the playlist.');
 
-  if (!newPlaylist) {
-    const playlistExists = await Playlist.findById(playlistId);
-    if (!playlistExists) {
-      throw new ApiError(404, 'Playlist not found.');
-    }
-    if (playlistExists.owner.toString() !== req.user?._id.toString()) {
-      throw new ApiError(403, 'Unauthorized attempt to add video to playlist.');
-    }
-    throw new ApiError(400, 'Video is already in the playlist.');
-  }
+  // Get next position
+  const maxPos = await prisma.playlistVideo.aggregate({
+    where: { playlistId },
+    _max: { position: true },
+  });
+  const position = (maxPos._max.position ?? 0) + 1;
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, newPlaylist, 'Video added successfully.'));
+  await prisma.playlistVideo.create({ data: { playlistId, videoId, position } });
+
+  res.status(200).json(new ApiResponse(200, {}, 'Video added successfully.'));
 });
+
+// ─── Remove Video from Playlist ───────────────────────────────────────────────
 
 const removeVideoFromPlaylist = asyncHandler(async (req: Request, res: Response) => {
-  const { playlistId, videoId } = req.params;
+  const { playlistId, videoId } = req.params as Record<string, string>;
 
-  if (!playlistId || !isValidObjectId(playlistId)) {
-    throw new ApiError(400, 'Invalid playlist ID.');
-  }
+  if (!playlistId) throw new ApiError(400, 'Invalid playlist ID.');
+  if (!videoId) throw new ApiError(400, 'Invalid video ID.');
 
-  if (!videoId || !isValidObjectId(videoId)) {
-    throw new ApiError(400, 'Invalid video ID.');
-  }
+  const playlist = await prisma.playlist.findUnique({ where: { id: playlistId } });
+  if (!playlist) throw new ApiError(404, 'Playlist not found.');
+  if (playlist.ownerId !== req.user!.id)
+    throw new ApiError(403, 'Unauthorized attempt to remove video from playlist.');
 
-  const updatedPlaylist = await Playlist.findOneAndUpdate(
-    { _id: playlistId, owner: req.user?._id, videos: videoId },
-    { $pull: { videos: videoId } },
-    { new: true }
-  );
+  const existing = await prisma.playlistVideo.findUnique({
+    where: { playlistId_videoId: { playlistId, videoId } },
+  });
+  if (!existing) throw new ApiError(404, 'Video not found in the playlist.');
 
-  if (!updatedPlaylist) {
-    const playlistExists = await Playlist.findById(playlistId);
-    if (!playlistExists) {
-      throw new ApiError(404, 'Playlist not found.');
-    }
-    if (playlistExists.owner.toString() !== req.user?._id.toString()) {
-      throw new ApiError(
-        403,
-        'Unauthorized attempt to remove video from playlist.'
-      );
-    }
-    throw new ApiError(404, 'Video not found in the playlist.');
-  }
+  await prisma.playlistVideo.delete({ where: { playlistId_videoId: { playlistId, videoId } } });
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        updatedPlaylist,
-        'Video removed from playlist successfully.'
-      )
-    );
+  res.status(200).json(new ApiResponse(200, {}, 'Video removed from playlist successfully.'));
 });
+
+// ─── Delete Playlist ──────────────────────────────────────────────────────────
 
 const deletePlaylist = asyncHandler(async (req: Request, res: Response) => {
-  const { playlistId } = req.params;
+  const { playlistId } = req.params as Record<string, string>;
 
-  if (!playlistId || !isValidObjectId(playlistId)) {
+  if (!playlistId) {
     throw new ApiError(400, 'Invalid playlist ID');
   }
 
-  const deletedPlaylist = await Playlist.findOneAndDelete({
-    _id: playlistId,
-    owner: req.user?._id,
-  });
+  const playlist = await prisma.playlist.findUnique({ where: { id: playlistId } });
+  if (!playlist) throw new ApiError(404, 'Playlist not found.');
+  if (playlist.ownerId !== req.user!.id)
+    throw new ApiError(403, 'Unauthorized attempt to delete playlist.');
 
-  if (!deletedPlaylist) {
-    throw new ApiError(
-      404,
-      'Playlist not found or unauthorized attempt to delete.'
-    );
-  }
+  await prisma.playlist.delete({ where: { id: playlistId } });
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200, deletedPlaylist, 'Playlist deleted successfully.')
-    );
+  res.status(200).json(new ApiResponse(200, playlist, 'Playlist deleted successfully.'));
 });
 
+// ─── Update Playlist ──────────────────────────────────────────────────────────
+
 const updatePlaylist = asyncHandler(async (req: Request, res: Response) => {
-  const { playlistId } = req.params;
+  const { playlistId } = req.params as Record<string, string>;
   const { name, description } = req.body;
 
-  if (!playlistId || !isValidObjectId(playlistId)) {
-    throw new ApiError(400, 'Invalid playlist ID');
-  }
+  if (!playlistId) throw new ApiError(400, 'Invalid playlist ID');
+  if (!name?.trim() || !description?.trim()) throw new ApiError(400, 'Name and Description are required fields');
 
-  if (!name?.trim() || !description?.trim()) {
-    throw new ApiError(400, 'Name and Description are required fields');
-  }
+  const playlist = await prisma.playlist.findUnique({ where: { id: playlistId } });
+  if (!playlist) throw new ApiError(404, 'Playlist not found.');
+  if (playlist.ownerId !== req.user!.id)
+    throw new ApiError(403, 'Unauthorized attempt to update playlist.');
 
-  const updatedPlaylist = await Playlist.findOneAndUpdate(
-    { _id: playlistId, owner: req.user?._id },
-    { name: name.trim(), description: description.trim() },
-    { new: true, runValidators: true }
-  );
+  const updatedPlaylist = await prisma.playlist.update({
+    where: { id: playlistId },
+    data: { name: name.trim(), description: description.trim() },
+  });
 
-  if (!updatedPlaylist) {
-    throw new ApiError(
-      404,
-      'Playlist not found or unauthorized attempt to update.'
-    );
-  }
-
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200, updatedPlaylist, 'Playlist updated successfully.')
-    );
+  res.status(200).json(new ApiResponse(200, updatedPlaylist, 'Playlist updated successfully.'));
 });
 
 export {
