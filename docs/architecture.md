@@ -42,17 +42,22 @@ sequenceDiagram
     participant C as Client
     participant Ctrl as Controller
     participant Svc as VideoService
-    participant CDN as Cloudinary
     participant DB as PostgreSQL
     participant Q as BullMQ Queue
+    participant W as VideoWorker
+    participant CDN as Cloudinary
     C->>Ctrl: POST /videos (multipart)
     Ctrl->>Svc: publishVideo(dto, files)
-    Svc->>CDN: upload video + thumbnail
-    CDN-->>Svc: publicId, secureUrl
-    Svc->>DB: video.create status=UPLOADING
+    Svc->>DB: video.create status=UPLOADING (local paths)
     Svc->>Q: enqueue video-processing job
     Svc-->>Ctrl: videoId, jobId
     Ctrl-->>C: 202 Accepted
+    Note over Q,W: Job picked up asynchronously
+    Q->>W: execute job
+    W->>CDN: upload local video + thumbnail
+    CDN-->>W: publicId, secureUrl
+    W->>DB: update status=READY, duration, urls
+    W-->>W: clean up local files from disk
 ```
 
 ## Worker Flow
