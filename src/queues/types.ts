@@ -1,8 +1,8 @@
 export interface VideoProcessingJobData {
   videoId: string;
   ownerId: string;
-  cloudinaryPublicId: string;
-  cloudinaryVideoUrl: string;
+  localVideoPath: string;
+  localThumbnailPath: string;
 }
 
 export interface NotificationJobData {

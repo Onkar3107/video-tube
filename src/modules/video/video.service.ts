@@ -65,42 +65,29 @@ export const videoService = {
       throw new ApiError(400, 'Video File and Thumbnail are mandatory fields.');
     }
 
-    const videoPath = files.videoFile[0].path;
-    const thumbPath = files.thumbnail[0].path;
+    const localVideoPath = files.videoFile[0].path;
+    const localThumbnailPath = files.thumbnail[0].path;
 
-    // Upload files to Cloudinary
-    const [videoUpload, thumbnailUpload] = await Promise.all([
-      uploadOnCloudinary(videoPath),
-      uploadOnCloudinary(thumbPath),
-    ]);
-
-    if (!videoUpload) throw new ApiError(500, 'Failed to upload video');
-    if (!thumbnailUpload) {
-      // Cleanup video upload if thumbnail fails
-      await deleteFromCloudinary(videoUpload.secure_url);
-      throw new ApiError(500, 'Failed to upload thumbnail');
-    }
-
-    // Create video record with UPLOADING status (not READY yet)
+    // Create video record with placeholder URLs and status UPLOADING
     const video = await videoRepository.create({
-      videoFile: videoUpload.secure_url,
-      thumbnail: thumbnailUpload.secure_url,
+      videoFile: 'PENDING',
+      thumbnail: 'PENDING',
       title: dto.title,
       description: dto.description,
-      duration: 0,   // Will be updated by worker
+      duration: 0,
       owner: { connect: { id: ownerId } },
       status: 'UPLOADING',
     });
 
-    // Enqueue background processing job
+    // Enqueue background processing job with local disk paths
     const job = await videoProcessingQueue.add('process-video', {
       videoId: video.id,
       ownerId,
-      cloudinaryPublicId: videoUpload.public_id,
-      cloudinaryVideoUrl: videoUpload.secure_url,
+      localVideoPath,
+      localThumbnailPath,
     });
 
-    logger.info({ videoId: video.id, jobId: job.id }, 'Video upload accepted, processing enqueued');
+    logger.info({ videoId: video.id, jobId: job.id }, 'Video upload accepted, background upload enqueued');
 
     // Invalidate caches
     await cache.delPattern('videos:*');
