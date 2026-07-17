@@ -13,7 +13,9 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "worker": "tsx src/workers/index.ts",
+    "worker:prod": "node dist/workers/index.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -24,8 +26,11 @@
   "type": "module",
   "description": "",
   "dependencies": {
+    "@bull-board/api": "^8.1.2",
+    "@bull-board/express": "^8.1.2",
     "@prisma/client": "6.19.3",
     "bcrypt": "^5.1.1",
+    "bullmq": "^5.80.6",
     "cloudinary": "^2.5.1",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",

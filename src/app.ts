@@ -8,6 +8,10 @@ import crypto from 'crypto';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { logger } from './config/logger.js';
 import { setupSwagger } from './config/swagger.js';
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
+import { videoProcessingQueue, notificationQueue, cleanupQueue } from './queues/index.js';
 
 import userRouter from './modules/user/user.routes.js';
 import videoRouter from './modules/video/video.routes.js';
@@ -90,6 +94,21 @@ app.use('/api/v1/dashboard', dashboardRouter);
 
 // Swagger Documentation
 setupSwagger(app);
+
+// ── Bull Board Setup ──────────────────────────────────────────────────────────
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/admin/queues');
+
+createBullBoard({
+  queues: [
+    new BullMQAdapter(videoProcessingQueue),
+    new BullMQAdapter(notificationQueue),
+    new BullMQAdapter(cleanupQueue),
+  ],
+  serverAdapter,
+});
+
+app.use('/admin/queues', serverAdapter.getRouter());
 
 // Centralized error handler — must be last
 app.use(errorHandler);

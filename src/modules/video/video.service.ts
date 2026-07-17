@@ -3,6 +3,7 @@ import { ApiError } from '../../utils/ApiError.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../../utils/cloudinary.js';
 import { cache, CacheKeys, CacheTTL } from '../../utils/cache.js';
 import { logger } from '../../config/logger.js';
+import { videoProcessingQueue } from '../../queues/index.js';
 import type { GetVideosDto, PublishVideoDto, UpdateVideoDto } from './video.dto.js';
 import type { Prisma, VideoStatus } from '@prisma/client';
 
@@ -64,43 +65,48 @@ export const videoService = {
       throw new ApiError(400, 'Video File and Thumbnail are mandatory fields.');
     }
 
-    const videoFileLocalPath = files.videoFile[0].path;
-    const thumbnailLocalPath = files.thumbnail[0].path;
+    const videoPath = files.videoFile[0].path;
+    const thumbPath = files.thumbnail[0].path;
 
-    let videoUrl: string | null = null;
-    let thumbnailUrl: string | null = null;
-    let duration = 0;
+    // Upload files to Cloudinary
+    const [videoUpload, thumbnailUpload] = await Promise.all([
+      uploadOnCloudinary(videoPath),
+      uploadOnCloudinary(thumbPath),
+    ]);
 
-    try {
-      const videoResult = await uploadOnCloudinary(videoFileLocalPath);
-      if (!videoResult) throw new ApiError(500, 'Error uploading video file.');
-      videoUrl = videoResult.secure_url;
-      duration = videoResult.duration ?? 0;
-
-      const thumbResult = await uploadOnCloudinary(thumbnailLocalPath);
-      if (!thumbResult) {
-        throw new ApiError(500, 'Error uploading thumbnail file.');
-      }
-      thumbnailUrl = thumbResult.secure_url;
-
-      const video = await videoRepository.create({
-        videoFile: videoUrl,
-        thumbnail: thumbnailUrl,
-        title: dto.title,
-        description: dto.description,
-        duration,
-        owner: { connect: { id: ownerId } },
-        status: 'READY',
-      });
-
-      await cache.delPattern('videos:*');
-      await cache.delPattern('dashboard:*');
-      return video;
-    } catch (error) {
-      if (videoUrl) await deleteFromCloudinary(videoUrl);
-      if (thumbnailUrl) await deleteFromCloudinary(thumbnailUrl);
-      throw error;
+    if (!videoUpload) throw new ApiError(500, 'Failed to upload video');
+    if (!thumbnailUpload) {
+      // Cleanup video upload if thumbnail fails
+      await deleteFromCloudinary(videoUpload.secure_url);
+      throw new ApiError(500, 'Failed to upload thumbnail');
     }
+
+    // Create video record with UPLOADING status (not READY yet)
+    const video = await videoRepository.create({
+      videoFile: videoUpload.secure_url,
+      thumbnail: thumbnailUpload.secure_url,
+      title: dto.title,
+      description: dto.description,
+      duration: 0,   // Will be updated by worker
+      owner: { connect: { id: ownerId } },
+      status: 'UPLOADING',
+    });
+
+    // Enqueue background processing job
+    const job = await videoProcessingQueue.add('process-video', {
+      videoId: video.id,
+      ownerId,
+      cloudinaryPublicId: videoUpload.public_id,
+      cloudinaryVideoUrl: videoUpload.secure_url,
+    });
+
+    logger.info({ videoId: video.id, jobId: job.id }, 'Video upload accepted, processing enqueued');
+
+    // Invalidate caches
+    await cache.delPattern('videos:*');
+    await cache.delPattern('dashboard:*');
+
+    return { videoId: video.id, jobId: job.id, status: 'UPLOADING' };
   },
 
   async getVideoById(id: string, userId?: string) {

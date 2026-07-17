@@ -8,6 +8,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+export { cloudinary };
+
 export const uploadOnCloudinary = async (localFilePath: string | undefined) => {
   try {
     if (!localFilePath) {
