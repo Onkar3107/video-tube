@@ -18,9 +18,9 @@
     "worker:prod": "node dist/workers/index.js",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
-    "test:integration": "cross-env TEST_TYPE=integration DATABASE_URL=postgresql://videotube_test:test@localhost:5433/videotube_test vitest run --fileParallelism=false tests/integration",
+    "test:integration": "cross-env NODE_ENV=test TEST_TYPE=integration vitest run --fileParallelism=false tests/integration",
     "test:watch": "vitest",
-    "test:coverage": "cross-env TEST_TYPE=integration DATABASE_URL=postgresql://videotube_test:test@localhost:5433/videotube_test vitest run --fileParallelism=false --coverage"
+    "test:coverage": "cross-env NODE_ENV=test TEST_TYPE=integration vitest run --fileParallelism=false --coverage"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

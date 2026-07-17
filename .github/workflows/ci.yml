@@ -86,16 +86,8 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Run unit tests with coverage
-        run: npm run test:unit -- --coverage
-
-      - name: Upload unit test coverage
-        uses: actions/upload-artifact@v4
-        if: always()   # Upload even if tests fail, for debugging
-        with:
-          name: unit-coverage-report
-          path: coverage/
-          retention-days: 14
+      - name: Run unit tests
+        run: npm run test:unit
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Job 3: Integration Tests — spins up real PostgreSQL and Redis containers
@@ -164,18 +156,16 @@ jobs:
       - name: Run Prisma migrations on test database
         run: npx prisma migrate deploy
 
-      - name: Run integration tests
-        run: npm run test:integration
+      - name: Run tests with coverage
+        run: npm run test:coverage
 
-      - name: Upload integration test results
+      - name: Upload combined coverage report
         uses: actions/upload-artifact@v4
-        if: failure()   # Only upload on failure for debugging
+        if: always()
         with:
-          name: integration-test-results
-          path: |
-            coverage/
-            test-results/
-          retention-days: 7
+          name: combined-coverage-report
+          path: coverage/
+          retention-days: 14
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Job 4: Build — verifies TypeScript compilation produces valid output
