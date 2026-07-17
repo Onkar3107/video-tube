@@ -5,8 +5,10 @@ import { prisma } from './config/database.js';
 import { disconnectRedis } from './config/redis.js';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
+import { createWebSocketServer } from './websocket/websocket.server.js';
 
 const httpServer = createServer(app);
+const wss = createWebSocketServer(httpServer);
 
 async function main() {
   await prisma.$connect();
@@ -23,6 +25,7 @@ async function gracefulShutdown(signal: string) {
 
   httpServer.close(async () => {
     logger.info('HTTP server closed');
+    wss.close();
     try {
       await prisma.$disconnect();
       logger.info('Database disconnected');

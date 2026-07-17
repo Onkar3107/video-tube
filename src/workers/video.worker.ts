@@ -4,6 +4,7 @@ import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
 import { notificationQueue } from '../queues/index.js';
 import type { VideoProcessingJobData, JobProgress } from '../queues/types.js';
+import { connectionManager } from '../websocket/connection.manager.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 import fs from 'fs/promises';
 
@@ -41,11 +42,21 @@ async function processVideoJob(job: Job<VideoProcessingJobData>) {
   await prisma.video.update({ where: { id: videoId }, data: { status: 'PROCESSING' } });
   await job.updateProgress({ percentage: 20, stage: 'FETCHING_METADATA' } satisfies JobProgress);
 
+  connectionManager.sendToUser(ownerId, {
+    type: 'video:active',
+    payload: { videoId, jobId: job.id!, progress: 20, stage: 'PROCESSING', status: 'active' },
+  });
+
   // ── Step 2: Upload Video to Cloudinary ────────────────────────────────────
   const videoUpload = await uploadOnCloudinary(localVideoPath);
   if (!videoUpload) throw new Error('Failed to upload video to Cloudinary');
 
   await job.updateProgress({ percentage: 50, stage: 'FETCHING_METADATA' } satisfies JobProgress);
+
+  connectionManager.sendToUser(ownerId, {
+    type: 'video:active',
+    payload: { videoId, jobId: job.id!, progress: 50, stage: 'UPLOADING_THUMBNAIL', status: 'active' },
+  });
 
   // ── Step 3: Upload Thumbnail to Cloudinary ────────────────────────────────
   const thumbnailUpload = await uploadOnCloudinary(localThumbnailPath);
@@ -68,6 +79,11 @@ async function processVideoJob(job: Job<VideoProcessingJobData>) {
     },
   });
   jobLogger.info('Video status set to READY and URLs updated');
+
+  connectionManager.sendToUser(ownerId, {
+    type: 'video:completed',
+    payload: { videoId, duration: videoUpload.duration ?? 0 },
+  });
 
   // ── Step 5: Clean Up Local Files on Success ───────────────────────────────
   await safeDeleteLocalFiles([localVideoPath, localThumbnailPath]);
@@ -153,6 +169,18 @@ videoWorker.on('failed', async (job, err) => {
           message: 'Your video failed to process. Please try uploading again.',
         },
       }).catch(() => {});
+
+      // Notify uploader via WebSocket
+      connectionManager.sendToUser(job.data.ownerId, {
+        type: 'video:failed',
+        payload: { videoId, reason: err.message },
+      });
+    } else {
+      // Notify uploader of retry attempt
+      connectionManager.sendToUser(job.data.ownerId, {
+        type: 'video:retry',
+        payload: { videoId, attempt: job.attemptsMade, maxAttempts },
+      });
     }
   }
 });

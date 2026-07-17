@@ -3,6 +3,8 @@ import { redis } from '../config/redis.js';
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
 import type { NotificationJobData } from '../queues/types.js';
+import { connectionManager } from '../websocket/connection.manager.js';
+import crypto from 'crypto';
 
 async function processNotificationJob(job: Job<NotificationJobData>) {
   const { type, targetUserIds, payload } = job.data;
@@ -32,9 +34,21 @@ async function processNotificationJob(job: Job<NotificationJobData>) {
 
   jobLogger.info({ inserted: targetUserIds.length }, 'Notifications inserted to DB');
 
-  // ── WebSocket delivery (Phase 7 will implement this fully) ─────────────────
-  // The connectionManager will be imported here in Phase 7.
-  // For now, notifications are stored in DB and fetched via REST.
+  // ── WebSocket delivery ─────────────────────────────────────────────────────
+  for (const userId of targetUserIds) {
+    if (connectionManager.isOnline(userId)) {
+      connectionManager.sendToUser(userId, {
+        type: 'notification',
+        payload: {
+          id: crypto.randomUUID(),  // Client-side dedup ID
+          type,
+          message: payload.message,
+          payload: payload as Record<string, unknown>,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    }
+  }
 
   jobLogger.info('Notification job completed');
 }

@@ -21,6 +21,7 @@ import subscriptionRouter from './modules/subscription/subscription.routes.js';
 import tweetRouter from './modules/tweet/tweet.routes.js';
 import playlistRouter from './modules/playlist/playlist.routes.js';
 import dashboardRouter from './modules/dashboard/dashboard.routes.js';
+import notificationRouter from './modules/notification/notification.routes.js';
 
 const app = express();
 
@@ -91,6 +92,7 @@ app.use('/api/v1/subscriptions', subscriptionRouter);
 app.use('/api/v1/tweets', tweetRouter);
 app.use('/api/v1/playlist', playlistRouter);
 app.use('/api/v1/dashboard', dashboardRouter);
+app.use('/api/v1/notifications', notificationRouter);
 
 // Swagger Documentation
 setupSwagger(app);
