@@ -216,3 +216,38 @@ jobs:
           name: production-build
           path: dist/
           retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 5: Publish Docker Image (CD) — only runs on pushes to main
+  # ─────────────────────────────────────────────────────────────────────────────
+  docker-publish:
+    name: Publish Docker Image to Docker Hub
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/video-tube:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/video-tube:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
