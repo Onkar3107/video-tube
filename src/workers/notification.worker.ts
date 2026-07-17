@@ -36,18 +36,16 @@ async function processNotificationJob(job: Job<NotificationJobData>) {
 
   // ── WebSocket delivery ─────────────────────────────────────────────────────
   for (const userId of targetUserIds) {
-    if (connectionManager.isOnline(userId)) {
-      connectionManager.sendToUser(userId, {
-        type: 'notification',
-        payload: {
-          id: crypto.randomUUID(),  // Client-side dedup ID
-          type,
-          message: payload.message,
-          payload: payload as Record<string, unknown>,
-          createdAt: new Date().toISOString(),
-        },
-      });
-    }
+    connectionManager.sendToUser(userId, {
+      type: 'notification',
+      payload: {
+        id: crypto.randomUUID(),  // Client-side dedup ID
+        type,
+        message: payload.message,
+        payload: payload as Record<string, unknown>,
+        createdAt: new Date().toISOString(),
+      },
+    });
   }
 
   jobLogger.info('Notification job completed');

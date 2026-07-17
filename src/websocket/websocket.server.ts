@@ -1,6 +1,8 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'http';
 import crypto from 'crypto';
+import { Redis } from 'ioredis';
+import { env } from '../config/env.js';
 import { authenticateWsConnection } from './middleware/ws-auth.middleware.js';
 import { connectionManager } from './connection.manager.js';
 import { roomManager } from './room.manager.js';
@@ -25,6 +27,27 @@ function sendMessage(socket: WebSocket, message: ServerMessage): void {
  */
 export function createWebSocketServer(httpServer: Server): WebSocketServer {
   const wss = new WebSocketServer({ noServer: true });
+
+  // Dedicated Redis subscriber client for WebSocket Pub/Sub delivery
+  const redisSub = new Redis(env.REDIS_URL, {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+  });
+
+  redisSub.subscribe('ws:events').catch((err) => {
+    logger.error({ err }, 'WebSocket: failed to subscribe to Redis ws:events channel');
+  });
+
+  redisSub.on('message', (channel, data) => {
+    if (channel === 'ws:events') {
+      try {
+        const { userId, message } = JSON.parse(data);
+        connectionManager.sendToLocalUser(userId, message);
+      } catch (err) {
+        logger.error({ err }, 'WebSocket: failed to parse Redis pub/sub event');
+      }
+    }
+  });
 
   // Handle upgrade events manually to route to the correct connection handler
   httpServer.on('upgrade', async (request, socket, head) => {
@@ -140,6 +163,7 @@ export function createWebSocketServer(httpServer: Server): WebSocketServer {
   // ── Cleanup on server close ───────────────────────────────────────────────────
   wss.on('close', () => {
     clearInterval(heartbeatInterval);
+    redisSub.quit().catch(() => {});
     logger.info('WebSocket server closed');
   });
 

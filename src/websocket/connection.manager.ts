@@ -1,5 +1,6 @@
 import { WebSocket } from 'ws';
 import { logger } from '../config/logger.js';
+import { redis } from '../config/redis.js';
 import type { ServerMessage } from './events/types.js';
 
 export interface ManagedSocket {
@@ -61,10 +62,10 @@ export class ConnectionManager {
   }
 
   /**
-   * Send a typed message to all connections for a specific user.
+   * Send a typed message to all connections of this process for a specific user.
    * Silently skips closed or non-open sockets.
    */
-  sendToUser(userId: string, message: ServerMessage): void {
+  sendToLocalUser(userId: string, message: ServerMessage): void {
     const connections = this.userConnections.get(userId);
     if (!connections || connections.size === 0) return;
 
@@ -72,10 +73,20 @@ export class ConnectionManager {
     for (const managed of connections) {
       if (managed.socket.readyState === WebSocket.OPEN) {
         managed.socket.send(data, (err) => {
-          if (err) logger.error({ err, userId, connectionId: managed.connectionId }, 'WebSocket: send error');
+          if (err) logger.error({ err, userId, connectionId: managed.connectionId }, 'WebSocket: send local error');
         });
       }
     }
+  }
+
+  /**
+   * Publish a message to the Redis Pub/Sub channel to broadcast
+   * across all API server instances.
+   */
+  sendToUser(userId: string, message: ServerMessage): void {
+    redis.publish('ws:events', JSON.stringify({ userId, message })).catch((err) => {
+      logger.error({ err, userId }, 'WebSocket: failed to publish event to Redis');
+    });
   }
 
   /**
