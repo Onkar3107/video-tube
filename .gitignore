@@ -33,3 +33,6 @@ Thumbs.db
 
 # Docker volumes
 postgres_data/
+
+# Phases documentation
+phases/

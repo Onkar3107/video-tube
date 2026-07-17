@@ -1,9 +1,10 @@
 import { TweetRepository } from './tweet.repository.js';
-import { prisma } from '../../config/database.js';
+import { UserRepository } from '../user/user.repository.js';
 import { ApiError } from '../../utils/ApiError.js';
 import type { CreateTweetDto, UpdateTweetDto } from './tweet.dto.js';
 
 const tweetRepository = new TweetRepository();
+const userRepository = new UserRepository();
 
 export const tweetService = {
   async createTweet(userId: string, dto: CreateTweetDto) {
@@ -14,12 +15,9 @@ export const tweetService = {
   },
 
   async getUserTweets(userId: string) {
-    // Check if user exists first
-    const userExists = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-    if (!userExists) {
+    // Validate user exists using the repository — not direct prisma
+    const exists = await userRepository.existsById(userId);
+    if (!exists) {
       throw new ApiError(404, 'User does not exist.');
     }
 
@@ -37,13 +35,11 @@ export const tweetService = {
   },
 
   async deleteTweet(tweetId: string, userId: string) {
-    const deleted = await tweetRepository.deleteMany({
-      id: tweetId,
-      ownerId: userId,
-    });
-
-    if (deleted.count === 0) {
-      throw new ApiError(404, "Tweet not found or you don't have permission to delete it.");
+    const tweet = await tweetRepository.findById(tweetId);
+    if (!tweet) throw new ApiError(404, 'Tweet not found.');
+    if (tweet.ownerId !== userId) {
+      throw new ApiError(403, "You don't have permission to delete this tweet.");
     }
+    await tweetRepository.delete(tweetId);
   },
 };

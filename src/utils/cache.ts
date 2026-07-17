@@ -39,15 +39,23 @@ export const cache = {
   },
 
   /**
-   * Delete all keys matching a glob pattern.
-   * Use sparingly — KEYS command is O(N).
+   * Delete all keys matching a glob pattern using SCAN (non-blocking, safe for production).
+   * KEYS is O(N) and blocks Redis; SCAN iterates in cursor batches without blocking.
    */
   async delPattern(pattern: string): Promise<void> {
     try {
-      const keys = await redis.keys(pattern);
-      if (keys.length > 0) {
-        await redis.del(...keys);
-        logger.debug({ pattern, count: keys.length }, 'Cache: pattern deleted');
+      let cursor = '0';
+      const keysToDelete: string[] = [];
+
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        cursor = nextCursor;
+        keysToDelete.push(...keys);
+      } while (cursor !== '0');
+
+      if (keysToDelete.length > 0) {
+        await redis.del(...keysToDelete);
+        logger.debug({ pattern, count: keysToDelete.length }, 'Cache: pattern deleted');
       }
     } catch (err) {
       logger.error({ err, pattern }, 'Cache: delPattern error');
@@ -64,6 +72,7 @@ export const CacheKeys = {
     `videos:p${page}:l${limit}:q${encodeURIComponent(query)}:u${userId ?? ''}`,
   dashboardStats: (userId: string) => `dashboard:stats:${userId}`,
   dashboardVideos: (userId: string) => `dashboard:videos:${userId}`,
+  session: (id: string) => `session:${id}`,
 } as const;
 
 // ── Cache TTLs (in seconds) ──────────────────────────────────────────────────

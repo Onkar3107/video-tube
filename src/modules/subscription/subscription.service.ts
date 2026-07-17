@@ -12,13 +12,13 @@ export const subscriptionService = {
 
     const existing = await subscriptionRepository.findUnique(userId, channelId);
 
-    let message: string;
+    let subscribed: boolean;
     if (existing) {
       await subscriptionRepository.delete(userId, channelId);
-      message = 'Unsubscribed successfully.';
+      subscribed = false;
     } else {
       await subscriptionRepository.create(userId, channelId);
-      message = 'Subscribed successfully.';
+      subscribed = true;
     }
 
     // Invalidate caches
@@ -26,7 +26,8 @@ export const subscriptionService = {
     await cache.delPattern('channel:*');
 
     const count = await subscriptionRepository.countSubscribers(channelId);
-    return { subscribed: !existing, count, message };
+    const message = subscribed ? 'Subscribed successfully.' : 'Unsubscribed successfully.';
+    return { subscribed, count, message };
   },
 
   async getUserChannelSubscribers(channelId: string) {

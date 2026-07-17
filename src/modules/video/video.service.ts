@@ -6,6 +6,8 @@ import { logger } from '../../config/logger.js';
 import type { GetVideosDto, PublishVideoDto, UpdateVideoDto } from './video.dto.js';
 import type { Prisma, VideoStatus } from '@prisma/client';
 
+type UploadedFiles = Record<string, Express.Multer.File[]> | undefined;
+
 const videoRepository = new VideoRepository();
 
 export const videoService = {
@@ -57,7 +59,7 @@ export const videoService = {
     return result;
   },
 
-  async publishVideo(dto: PublishVideoDto, ownerId: string, files: any) {
+  async publishVideo(dto: PublishVideoDto, ownerId: string, files: UploadedFiles) {
     if (!files?.videoFile?.[0]?.path || !files?.thumbnail?.[0]?.path) {
       throw new ApiError(400, 'Video File and Thumbnail are mandatory fields.');
     }

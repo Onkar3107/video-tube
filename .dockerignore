@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Git and CI/CD
+.git
+.github
+.gitignore
+.gitattributes
+
+# Documentation and project planning
+phases/
+docs/
+README.md
+LICENSE
+
+# Tests and configs
+tests/
+jest.config.*
+vitest.config.*
+playwright.config.*
+cypress/
+.nyc_output/
+coverage/
+
+# Linting, formatting, and editor configs
+eslint.config.*
+.eslintignore
+.prettier*
+.editorconfig
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local Environment and Logs
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Docker and infrastructure configs
+Dockerfile
+docker-compose*.yml
+.dockerignore
+postgres_data/
+
+# Temporary files and cache
+.npm
+.eslintcache
+.parcel-cache
+.cache
+public/temp/*
+!public/temp/.gitkeep
+tmp/
+temp/

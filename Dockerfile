@@ -11,6 +11,7 @@ RUN npx prisma generate
 
 COPY . .
 RUN npm run build
+RUN npm prune --production
 
 # ─── Stage 2: Production ──────────────────────────────────────────────────────
 FROM node:20-alpine AS production

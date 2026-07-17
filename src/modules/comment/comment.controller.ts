@@ -6,15 +6,12 @@ import { ApiError } from '../../utils/ApiError.js';
 
 export const getVideoComments = asyncHandler(async (req: Request, res: Response) => {
   const { videoId } = req.params as Record<string, string>;
-  const pageStr = req.query.page as string;
-  const limitStr = req.query.limit as string;
-
-  const page = Math.max(1, parseInt(pageStr ?? '1', 10));
-  const limit = Math.min(50, Math.max(1, parseInt(limitStr ?? '10', 10)));
-
   if (!videoId) {
     throw new ApiError(400, 'Invalid video ID.');
   }
+
+  // page and limit are already validated and coerced by validateQuery(GetCommentsSchema)
+  const { page, limit } = req.query as unknown as { page: number; limit: number };
 
   const result = await commentService.getVideoComments(videoId, page, limit);
   res.status(200).json(new ApiResponse(200, result, 'Comments retrieved successfully.'));

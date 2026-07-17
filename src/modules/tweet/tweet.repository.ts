@@ -21,7 +21,7 @@ export class TweetRepository {
     return prisma.tweet.update({ where: { id }, data });
   }
 
-  async deleteMany(where: Prisma.TweetWhereInput) {
-    return prisma.tweet.deleteMany({ where });
+  async delete(id: string) {
+    return prisma.tweet.delete({ where: { id } });
   }
 }

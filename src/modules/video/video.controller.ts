@@ -10,8 +10,8 @@ export const getAllVideos = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const publishAVideo = asyncHandler(async (req: Request, res: Response) => {
-  const video = await videoService.publishVideo(req.body, req.user!.id, req.files);
-  res.status(200).json(new ApiResponse(200, video, 'Video uploaded successfully'));
+  const video = await videoService.publishVideo(req.body, req.user!.id, req.files as Record<string, Express.Multer.File[]> | undefined);
+  res.status(201).json(new ApiResponse(201, video, 'Video uploaded successfully'));
 });
 
 export const getVideoById = asyncHandler(async (req: Request, res: Response) => {

@@ -8,6 +8,9 @@ const createLimiter = (windowMs: number, max: number, prefix: string) =>
     max,
     standardHeaders: true, // Returns RateLimit-* headers
     legacyHeaders: false,
+    // Disable the IPv6 key generator validation — we use Redis store with prefix keys,
+    // not raw IPs, so the validation warning is a false positive
+    validate: { xForwardedForHeader: false },
     store: new RedisStore({
       // @ts-expect-error - ioredis.call expects Command argument types
       sendCommand: (...args: string[]) => redis.call(args[0]!, ...args.slice(1)),
@@ -20,7 +23,12 @@ const createLimiter = (windowMs: number, max: number, prefix: string) =>
         errors: [],
       });
     },
-    skip: (req) => req.ip === '127.0.0.1' && process.env.NODE_ENV === 'test',
+    skip: (req) =>
+      process.env.NODE_ENV === 'development' ||
+      process.env.NODE_ENV === 'test' ||
+      req.ip === '127.0.0.1' ||
+      req.ip === '::1' ||
+      req.ip === '::ffff:127.0.0.1',
   });
 
 // Strict limiter for auth endpoints

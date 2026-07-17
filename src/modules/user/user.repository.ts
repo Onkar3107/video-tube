@@ -23,11 +23,25 @@ export class UserRepository {
     return prisma.user.findUnique({
       where: { username: username.toLowerCase() },
       include: {
-        subscribers: true,
-        subscriptions: true,
+        // Use _count instead of loading all subscriber records into memory
+        _count: {
+          select: { subscribers: true, subscriptions: true },
+        },
       },
       omit: { password: true, refreshToken: true },
     });
+  }
+
+  async isSubscribed(subscriberId: string, channelId: string): Promise<boolean> {
+    const count = await prisma.subscription.count({
+      where: { subscriberId, channelId },
+    });
+    return count > 0;
+  }
+
+  async existsById(id: string): Promise<boolean> {
+    const count = await prisma.user.count({ where: { id } });
+    return count > 0;
   }
 
   async create(data: Prisma.UserCreateInput) {
