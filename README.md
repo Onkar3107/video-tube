@@ -1,5 +1,7 @@
 # VideoTube Backend
 
+[![CI](https://github.com/Onkar3107/video-tube/actions/workflows/ci.yml/badge.svg)](https://github.com/Onkar3107/video-tube/actions/workflows/ci.yml)
+
 A production-ready YouTube-clone backend demonstrating modern Node.js backend engineering practices.
 
 ## Tech Stack
