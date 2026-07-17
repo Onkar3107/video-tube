@@ -1,4 +1,4 @@
-import { beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { beforeAll, afterAll, beforeEach, vi, expect } from 'vitest';
 import { prisma } from '../src/config/database.js';
 
 const isIntegration = process.env['TEST_TYPE'] === 'integration';
@@ -18,10 +18,15 @@ afterAll(async () => {
 
 // ── Clean DB and cache between integration tests ─────────────────────────────
 beforeEach(async () => {
-  if (isIntegration) {
+  const currentTestPath = expect.getState().testPath;
+  const isIntegrationFile = currentTestPath?.includes('tests/integration');
+
+  if (isIntegration && isIntegrationFile) {
     // Flush Redis database to ensure clean cache state between test files/cases
     const { redis } = await import('../src/config/redis.js');
-    await redis.flushdb().catch(() => {});
+    if (redis && typeof redis.flushdb === 'function') {
+      await redis.flushdb().catch(() => {});
+    }
 
     // Delete in correct order respecting FK constraints
     await prisma.$transaction([
@@ -60,13 +65,27 @@ vi.mock('../src/config/redis.js', async (importOriginal) => {
       set: vi.fn().mockResolvedValue('OK'),
       del: vi.fn().mockResolvedValue(1),
       keys: vi.fn().mockResolvedValue([]),
-      call: vi.fn(),
+      call: vi.fn().mockResolvedValue('mock-sha'), // Return mock SHA for rate-limit-redis script load
       on: vi.fn(),
       quit: vi.fn().mockResolvedValue(undefined),
       delPattern: vi.fn().mockResolvedValue(undefined),
       publish: vi.fn().mockResolvedValue(1),
     },
     disconnectRedis: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
+// ── Mock Bull Board adapters globally to prevent class type checks failures ──
+vi.mock('@bull-board/api/bullMQAdapter', () => {
+  return {
+    BullMQAdapter: vi.fn().mockImplementation(function (this: any, queue: any) {
+      this.queue = queue;
+      this.getName = () => queue?.name || 'mock-queue';
+      this.getCleaned = () => Promise.resolve([]);
+      this.getJobs = () => Promise.resolve([]);
+      this.getJobCounts = () => Promise.resolve({});
+      return this;
+    }),
   };
 });
 
