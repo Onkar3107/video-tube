@@ -29,7 +29,7 @@ const envSchema = z.object({
 
   // Logging
   LOG_LEVEL: z
-    .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal'])
+    .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
     .default('info'),
 });
 
