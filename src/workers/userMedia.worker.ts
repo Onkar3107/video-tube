@@ -3,7 +3,7 @@ import { redis } from '../config/redis.js';
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
-import { cache, CacheKeys } from '../utils/cache.js';
+import { cache } from '../utils/cache.js';
 import type { UserMediaJobData } from '../queues/types.js';
 import fs from 'fs/promises';
 
