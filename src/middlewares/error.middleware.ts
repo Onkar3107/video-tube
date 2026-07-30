@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import jsonwebtoken from 'jsonwebtoken';
 import { ZodError } from 'zod';
 import { MulterError } from 'multer';
+import { logger } from '../config/logger.js';
 
 const { TokenExpiredError, JsonWebTokenError } = jsonwebtoken;
 
@@ -85,6 +86,9 @@ export const errorHandler = (
   const message = isDev && err instanceof Error ? err.message : 'Internal server error';
   const stack = isDev && err instanceof Error ? err.stack : undefined;
 
+  // Log the unhandled error trace for production debugging
+  logger.error(err instanceof Error ? err : new Error(String(err)), 'Unhandled error occurred');
+
   res.status(500).json({
     success: false,
     message,
@@ -92,3 +96,4 @@ export const errorHandler = (
     errors: [],
   });
 };
+
