@@ -71,6 +71,8 @@ describe('UserService.register', () => {
 
     expect(result).not.toHaveProperty('password');
     expect(result).not.toHaveProperty('refreshToken');
+    expect(result).not.toHaveProperty('avatar');
+    expect(result).not.toHaveProperty('coverImage');
     expect(userMediaQueue.add).toHaveBeenCalledWith('upload-user-media', {
       userId: 'user1',
       localAvatarPath: '/tmp/avatar.jpg',
