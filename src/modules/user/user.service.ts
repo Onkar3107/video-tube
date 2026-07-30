@@ -57,7 +57,7 @@ export const userService = {
       localCoverPath: coverPath,
     });
 
-    const { password: _p, refreshToken: _rt, ...safeUser } = user;
+    const { password: _p, refreshToken: _rt, avatar: _av, coverImage: _ci, ...safeUser } = user;
     return safeUser;
   },
 
