@@ -1,6 +1,6 @@
 import { Queue } from 'bullmq';
 import { redis } from '../config/redis.js';
-import type { VideoProcessingJobData, NotificationJobData, CleanupJobData } from './types.js';
+import type { VideoProcessingJobData, NotificationJobData, CleanupJobData, UserMediaJobData } from './types.js';
 
 const connection = redis;
 
@@ -37,4 +37,9 @@ export const cleanupQueue = new Queue<CleanupJobData>(
     connection,
     defaultJobOptions: { attempts: 1 },
   },
+);
+
+export const userMediaQueue = new Queue<UserMediaJobData>(
+  'user-media',
+  { connection, defaultJobOptions },
 );

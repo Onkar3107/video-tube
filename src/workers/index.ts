@@ -2,6 +2,7 @@ import '../config/env.js';   // Validate env first
 import { videoWorker } from './video.worker.js';
 import { notificationWorker } from './notification.worker.js';
 import { cleanupWorker } from './cleanup.worker.js';
+import { userMediaWorker } from './userMedia.worker.js';
 import { cleanupQueue } from '../queues/index.js';
 import { prisma } from '../config/database.js';
 import { disconnectRedis } from '../config/redis.js';
@@ -23,7 +24,7 @@ async function startWorkers() {
   );
 
   logger.info({
-    workers: ['video-processing', 'notifications', 'cleanup'],
+    workers: ['video-processing', 'notifications', 'cleanup', 'user-media'],
   }, 'All workers started');
 }
 
@@ -35,6 +36,7 @@ async function gracefulShutdown(signal: string) {
       videoWorker.close(),
       notificationWorker.close(),
       cleanupWorker.close(),
+      userMediaWorker.close(),
     ]);
     await prisma.$disconnect();
     await disconnectRedis();

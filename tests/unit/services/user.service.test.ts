@@ -13,6 +13,12 @@ vi.mock('../../../src/utils/cloudinary.js', () => ({
   deleteFromCloudinary: vi.fn(),
 }));
 
+vi.mock('../../../src/queues/index.js', () => ({
+  userMediaQueue: {
+    add: vi.fn(),
+  },
+}));
+
 vi.mock('bcrypt', () => ({
   default: {
     hash: vi.fn(),
@@ -23,6 +29,7 @@ vi.mock('bcrypt', () => ({
 import { userService } from '../../../src/modules/user/user.service.js';
 import { prisma } from '../../../src/config/database.js';
 import { uploadOnCloudinary } from '../../../src/utils/cloudinary.js';
+import { userMediaQueue } from '../../../src/queues/index.js';
 import bcrypt from 'bcrypt';
 
 const mockPrisma = prisma as unknown as ReturnType<typeof mockDeep<PrismaClient>>;
@@ -47,27 +54,12 @@ describe('UserService.register', () => {
     ).rejects.toMatchObject({ statusCode: 400, message: 'Avatar file is required' });
   });
 
-  it('throws 500 if Cloudinary upload fails', async () => {
+  it('creates user and enqueues userMediaQueue job', async () => {
     vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
-    vi.mocked(uploadOnCloudinary).mockResolvedValue(null);
-    await expect(
-      userService.register(
-        { username: 'newuser', email: 'new@b.com', password: 'pass12345', fullName: 'New' },
-        { avatar: [{ path: '/tmp/avatar.jpg' }] } as any,
-      ),
-    ).rejects.toMatchObject({ statusCode: 500 });
-  });
-
-  it('creates user and returns safe user without password or refreshToken', async () => {
-    vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
-    vi.mocked(uploadOnCloudinary).mockResolvedValue({
-      secure_url: 'https://cdn.com/avatar.jpg',
-      public_id: 'avatar123',
-    } as any);
     vi.mocked(prisma.user.create).mockResolvedValue({
       id: 'user1', username: 'newuser', email: 'new@b.com',
-      fullName: 'New', avatar: 'https://cdn.com/avatar.jpg',
-      password: 'hashed', refreshToken: null, coverImage: null,
+      fullName: 'New', avatar: 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg',
+      password: 'hashed', refreshToken: null, coverImage: '',
       createdAt: new Date(), updatedAt: new Date(),
     });
     vi.mocked(bcrypt.hash).mockResolvedValue('hashed' as any);
@@ -79,7 +71,11 @@ describe('UserService.register', () => {
 
     expect(result).not.toHaveProperty('password');
     expect(result).not.toHaveProperty('refreshToken');
-    expect(result).toHaveProperty('avatar', 'https://cdn.com/avatar.jpg');
+    expect(userMediaQueue.add).toHaveBeenCalledWith('upload-user-media', {
+      userId: 'user1',
+      localAvatarPath: '/tmp/avatar.jpg',
+      localCoverPath: undefined,
+    });
   });
 });
 

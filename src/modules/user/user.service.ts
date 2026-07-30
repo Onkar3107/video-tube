@@ -4,6 +4,7 @@ import { UserRepository } from './user.repository.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../../utils/cloudinary.js';
 import { cache, CacheKeys, CacheTTL } from '../../utils/cache.js';
+import { userMediaQueue } from '../../queues/index.js';
 import type { RegisterUserDto, LoginUserDto, ChangePasswordDto, UpdateProfileDto } from './user.dto.js';
 
 const userRepository = new UserRepository();
@@ -37,20 +38,23 @@ export const userService = {
     if (!avatarPath) throw new ApiError(400, 'Avatar file is required');
     const coverPath = filesObj?.['coverImage']?.[0]?.path;
 
-    const avatar = await uploadOnCloudinary(avatarPath);
-    if (!avatar) throw new ApiError(500, 'Failed to upload avatar');
-
-    const coverImage = coverPath ? await uploadOnCloudinary(coverPath) : null;
-
     const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    const placeholderAvatar = 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg';
 
     const user = await userRepository.create({
       username: dto.username.toLowerCase(),
       email: dto.email,
       password: hashedPassword,
       fullName: dto.fullName,
-      avatar: avatar.secure_url,
-      coverImage: coverImage?.secure_url ?? '',
+      avatar: placeholderAvatar,
+      coverImage: '',
+    });
+
+    await userMediaQueue.add('upload-user-media', {
+      userId: user.id,
+      localAvatarPath: avatarPath,
+      localCoverPath: coverPath,
     });
 
     const { password: _p, refreshToken: _rt, ...safeUser } = user;

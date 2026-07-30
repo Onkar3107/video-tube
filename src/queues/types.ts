@@ -21,6 +21,12 @@ export interface CleanupJobData {
   _?: never;
 }
 
+export interface UserMediaJobData {
+  userId: string;
+  localAvatarPath: string;
+  localCoverPath?: string;
+}
+
 export type JobProgress = {
   percentage: number;
   stage: 'FETCHING_METADATA' | 'UPDATING_DB' | 'NOTIFYING_SUBSCRIBERS' | 'DONE';
