@@ -14,7 +14,7 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: [
         'src/index.ts',              // Entry point
-        'src/workers/index.ts',      // Worker entry point
+        'src/workers/**',            // Background worker process files
         'src/config/database.ts',    // DB singleton
         'src/**/*.dto.ts',           // Zod schemas — tested via validator tests
         'src/websocket/**',          // WebSocket — manual/integration testing
