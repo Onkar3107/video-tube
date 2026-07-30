@@ -50,7 +50,7 @@ async function processUserMediaJob(job: Job<UserMediaJobData>) {
         where: { id: userId },
         data: updateData,
       });
-      await cache.del(CacheKeys.userProfile(userId));
+      await cache.delPattern(`user:${userId}:*`);
       jobLogger.info({ updateData }, 'User media updated successfully in database');
     }
   } finally {
